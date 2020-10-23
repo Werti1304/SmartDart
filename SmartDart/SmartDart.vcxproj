@@ -74,12 +74,20 @@
   <ImportGroup Label="Shared" />
   <ImportGroup Label="PropertySheets" />
   <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <IncludePath>/usr/local/include/opencv4</IncludePath>
+  </PropertyGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
   </ItemGroup>
-  <ItemDefinitionGroup />
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Link>
+      <LibraryDependencies>opencv_core;opencv_highgui;opencv_imgcodecs;opencv_imgproc;opencv_video;opencv_videoio;pthread;jpeg;gcc_s;stdc++;tbb;rt;dl;m;z;png16;c;%(LibraryDependencies)</LibraryDependencies>
+      <SharedLibrarySearchPath>/usr/lib/x86_64-linux-gnu/;/usr/lib/gcc/x86_64-linux-gnu/7;/usr/local/lib;/lib/x86_64-linux-gnu/;%(SharedLibrarySearchPath);%(Link.SharedLibrarySearchPath)</SharedLibrarySearchPath>
+    </Link>
+  </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />
 </Project>
