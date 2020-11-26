@@ -1,0 +1,25 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="ScalarTrackbar.cpp">
+      <Filter>ScalarTrackbar</Filter>
+    </ClCompile>
+    <ClCompile Include="HSVTrackbar.cpp">
+      <Filter>ScalarTrackbar</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="ScalarTrackbar">
+      <UniqueIdentifier>{f8b63630-83b7-4f2b-8c32-04bab4cb6d1c}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="ScalarTrackbar.h">
+      <Filter>ScalarTrackbar</Filter>
+    </ClInclude>
+    <ClInclude Include="HSVTrackbar.h">
+      <Filter>ScalarTrackbar</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
