@@ -26,6 +26,7 @@ ScalarTrackbar::ScalarTrackbar(std::string name, int* value1, int* value2, int* 
   this->image = cv::Mat3b(width, height, cv::Vec3b(0, 0, 0));
 
   // initialize trackbars
+  // https://docs.opencv.org/3.4/da/d6a/tutorial_trackbar.html
   cv::namedWindow(windowName);
   cv::createTrackbar(names[0], windowName, values[0], maxValue, callback, this);
   cv::createTrackbar(names[1], windowName, values[1], maxValue, callback, this);
