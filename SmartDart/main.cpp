@@ -21,11 +21,7 @@ void createResizedWindow(string windowName)
   resizeWindow(windowName, RaspiWidth / 2, RaspiHeight / 2);
 }
 
-string windowNameInput = "Input";
-string windowNameMask = "Mask Red 1";
-string windowNameMask2 = "Mask Red 2";
-string windowNameMask3 = "Mask Green";
-string windowNameMaskFinal = "Mask Final";
+string windowNameMask = "Mask";
 string windowNameOutput = "Output";
 
 Mat inputImage;
@@ -45,17 +41,22 @@ void onColorFilterChange()
   Mat result;
   bitwise_and(inputImage, inputImage, result, colorFilteredMask);
 
-  imshow(windowNameInput, inputImage);
   imshow(windowNameMask, colorFilteredMask);
   imshow(windowNameOutput, result);
 }
 
 void automatedColorTest()
 {
-  createResizedWindow(windowNameMask);
-  createResizedWindow(windowNameMask2);
-  createResizedWindow(windowNameMask3);
+  string windowNameMaskRed1 = "Mask Red 1";
+  string windowNameMaskRed2 = "Mask Red 2";
+  string windowNameMaskGreen = "Mask Green";
+  string windowNameMaskFinal = "Mask Final";
+
+  createResizedWindow(windowNameMaskRed1);
+  createResizedWindow(windowNameMaskRed2);
+  createResizedWindow(windowNameMaskGreen);
   createResizedWindow(windowNameMaskFinal);
+
   createResizedWindow(windowNameOutput);
 
   cvtColor(inputImage, inputImageHsv, COLOR_BGR2HSV); // Init inputImageHsv
@@ -85,10 +86,9 @@ void automatedColorTest()
   Mat result;
   bitwise_and(inputImage, inputImage, result, finalMask);
 
-  imshow(windowNameInput, inputImage);
-  imshow(windowNameMask, mask_Color_red_1);
-  imshow(windowNameMask2, mask_Color_red_2);
-  imshow(windowNameMask3, mask_Color_green_1);
+  imshow(windowNameMaskRed1, mask_Color_red_1);
+  imshow(windowNameMaskRed2, mask_Color_red_2);
+  imshow(windowNameMaskGreen, mask_Color_green_1);
   imshow(windowNameMaskFinal, finalMask);
   imshow(windowNameOutput, result);
 }
@@ -134,7 +134,7 @@ int colorTest()
   }
 }
 
-void reset()
+void reset(string windowNameInput)
 {
   destroyAllWindows();
   createResizedWindow(windowNameInput);
@@ -143,14 +143,14 @@ void reset()
 
 int main(int argc, char** argv)
 {
-  //inputImage = imread("/home/pi/Desktop/TestImage.jpg"); // Init inputImage
-  VideoCapture cap = VideoCapture(0);
-  cap.set(CAP_PROP_XI_FRAMERATE, 1);
-  cap.set(CAP_PROP_FRAME_WIDTH, 2592);
-  cap.set(CAP_PROP_FRAME_HEIGHT, 1944);
-  cap.set(CAP_PROP_AUTO_EXPOSURE, 0.25);
-  cap.read(inputImage);
-  cvtColor(inputImage, inputImage, COLOR_RGB2BGR); // Needed for VideoCapture b/c OpenCV is dumb
+  inputImage = imread("/home/pi/Desktop/TestImage.jpg"); // Init inputImage
+  //VideoCapture cap = VideoCapture(0);
+  //cap.set(CAP_PROP_XI_FRAMERATE, 1);
+  //cap.set(CAP_PROP_FRAME_WIDTH, 2592);
+  //cap.set(CAP_PROP_FRAME_HEIGHT, 1944);
+  //cap.set(CAP_PROP_AUTO_EXPOSURE, 0.25);
+  //cap.read(inputImage);
+  //cvtColor(inputImage, inputImage, COLOR_RGB2BGR); // Needed for VideoCapture b/c OpenCV is dumb
 
   if(inputImage.data == nullptr)
   {
@@ -158,23 +158,19 @@ int main(int argc, char** argv)
     return -1;
   }
 
-  createResizedWindow(windowNameInput);
-  imshow(windowNameInput, inputImage);
+  string windowNameInput = "Input";
   for(;;)
   {
+    reset(windowNameInput);
     char ch = waitKey(0);
     switch (ch)
     {
     case 'a':
       automatedColorTest();
       waitKey(0);
-      reset();
       break;
     case 'b':
       colorTest();
-      destroyAllWindows();
-      createResizedWindow(windowNameInput);
-      imshow(windowNameInput, inputImage);
       break;
     case 'q':
       return 0;
