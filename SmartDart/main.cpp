@@ -1,6 +1,5 @@
 #include <iostream>
-#include "opencv2/highgui/highgui.hpp"
-#include "opencv2/imgproc/imgproc.hpp"
+#include "opencv2/opencv.hpp"
 #include "Helper.h"
 #include "HSVTrackbar.h"
 #include <thread>
@@ -45,12 +44,12 @@ void onColorFilterChange()
   imshow(windowNameOutput, result);
 }
 
-void automatedColorTest()
+Mat automatedColorTest()
 {
-  string windowNameMaskRed1 = "Mask Red 1";
-  string windowNameMaskRed2 = "Mask Red 2";
-  string windowNameMaskGreen = "Mask Green";
-  string windowNameMaskFinal = "Mask Final";
+  const string windowNameMaskRed1 = "Mask Red 1";
+  const string windowNameMaskRed2 = "Mask Red 2";
+  const string windowNameMaskGreen = "Mask Green";
+  const string windowNameMaskFinal = "Mask Final";
 
   createResizedWindow(windowNameMaskRed1);
   createResizedWindow(windowNameMaskRed2);
@@ -61,14 +60,24 @@ void automatedColorTest()
 
   cvtColor(inputImage, inputImageHsv, COLOR_BGR2HSV); // Init inputImageHsv
 
-  Scalar min_Color_red_1_low = Scalar(0, 110, 30);
+  // Old values without histogram equalization
+  //Scalar min_Color_red_1_low = Scalar(0, 110, 30);
+  //Scalar max_Color_red_1_high = Scalar(10, 255, 255);
+
+  //Scalar min_Color_red_2_low = Scalar(170, 90, 30);
+  //Scalar max_Color_red_2_high = Scalar(180, 255, 255);
+
+  //Scalar min_Color_green_1_low = Scalar(60, 100, 5);
+  //Scalar min_Color_green_1_high = Scalar(90, 255, 255);
+
+  Scalar min_Color_red_1_low = Scalar(0, 50, 10);
   Scalar max_Color_red_1_high = Scalar(10, 255, 255);
 
-  Scalar min_Color_red_2_low = Scalar(170, 90, 30);
+  Scalar min_Color_red_2_low = Scalar(170, 50, 10);
   Scalar max_Color_red_2_high = Scalar(180, 255, 255);
 
-  Scalar min_Color_green_1_low = Scalar(60, 100, 5);
-  Scalar min_Color_green_1_high = Scalar(90, 255, 255);
+  Scalar min_Color_green_1_low = Scalar(50, 30, 0);
+  Scalar min_Color_green_1_high = Scalar(90, 255, 130);
 
   Mat mask_Color_red_1;
   inRange(inputImageHsv, min_Color_red_1_low, max_Color_red_1_high, mask_Color_red_1);
@@ -91,6 +100,8 @@ void automatedColorTest()
   imshow(windowNameMaskGreen, mask_Color_green_1);
   imshow(windowNameMaskFinal, finalMask);
   imshow(windowNameOutput, result);
+
+  return result;
 }
 
 int colorTest()
@@ -134,6 +145,74 @@ int colorTest()
   }
 }
 
+#define TESTFUNC 1
+void testFunc()
+{
+  /// Histogram Equalization GRAY
+  //cvtColor(inputImage, inputImage, COLOR_BGR2GRAY);
+
+  //Mat output;
+  //equalizeHist(inputImage, output);
+
+  //string outputWindowName = "Equalized Image (Grayscale)";
+  //createResizedWindow(outputWindowName);
+  //imshow(outputWindowName, output);
+
+  /// Histogram Equalization COLOR
+  Mat ycrcb;
+
+  cvtColor(inputImage, ycrcb, COLOR_BGR2YCrCb);
+
+  vector<Mat> channels;
+  split(ycrcb, channels);
+
+  equalizeHist(channels[0], channels[0]);
+
+  Mat result;
+  merge(channels, ycrcb);
+
+  cvtColor(ycrcb, result, COLOR_YCrCb2BGR);
+
+  string outputWindowName = "Equalized Image (Colored)";
+  createResizedWindow(outputWindowName);
+  imshow(outputWindowName, result);
+
+  inputImage = result;
+  inputImage = automatedColorTest();
+
+  //Mat outputDenoised;
+  //fastNlMeansDenoisingColored(inputImage, outputDenoised);
+
+  //string windowOutputDenoised = "Output Denoised";
+  //createResizedWindow(windowOutputDenoised);
+  //imshow(windowOutputDenoised, outputDenoised);
+
+  /// Hough Circle detection
+//  Mat gray;
+//  cvtColor(inputImage, gray, COLOR_BGR2GRAY);
+//  medianBlur(gray, gray, 5);
+//  vector<Vec3f> circles;
+//  HoughCircles(gray, circles, HOUGH_GRADIENT, 1,
+//    gray.rows / 16,  // change this value to detect circles with different distances to each other
+//    100, 30, 10, 100 // change the last two parameters
+//// (min_radius & max_radius) to detect larger circles
+//);
+//  for (size_t i = 0; i < circles.size(); i++)
+//  {
+//    Vec3i c = circles[i];
+//    Point center = Point(c[0], c[1]);
+//    // circle center
+//    circle(inputImage, center, 1, Scalar(0, 100, 100), 3, LINE_AA);
+//    // circle outline
+//    int radius = c[2];
+//    circle(inputImage, center, radius, Scalar(255, 0, 255), 3, LINE_AA);
+//  }
+//
+//  string windowCircle = "Circles";
+//  createResizedWindow(windowCircle);
+//  imshow(windowCircle, inputImage);
+}
+
 void reset(string windowNameInput)
 {
   destroyAllWindows();
@@ -143,14 +222,14 @@ void reset(string windowNameInput)
 
 int main(int argc, char** argv)
 {
-  inputImage = imread("/home/pi/Desktop/TestImage.jpg"); // Init inputImage
-  //VideoCapture cap = VideoCapture(0);
-  //cap.set(CAP_PROP_XI_FRAMERATE, 1);
-  //cap.set(CAP_PROP_FRAME_WIDTH, 2592);
-  //cap.set(CAP_PROP_FRAME_HEIGHT, 1944);
-  //cap.set(CAP_PROP_AUTO_EXPOSURE, 0.25);
-  //cap.read(inputImage);
-  //cvtColor(inputImage, inputImage, COLOR_RGB2BGR); // Needed for VideoCapture b/c OpenCV is dumb
+  //inputImage = imread("/home/pi/Desktop/TestImage.jpg"); // Init inputImage
+  VideoCapture cap = VideoCapture(0);
+  cap.set(CAP_PROP_XI_FRAMERATE, 1);
+  cap.set(CAP_PROP_FRAME_WIDTH, 2592);
+  cap.set(CAP_PROP_FRAME_HEIGHT, 1944);
+  cap.set(CAP_PROP_AUTO_EXPOSURE, 0.25);
+  cap.read(inputImage);
+  cvtColor(inputImage, inputImage, COLOR_RGB2BGR); // Needed for VideoCapture b/c OpenCV is dumb
 
   if(inputImage.data == nullptr)
   {
@@ -159,9 +238,19 @@ int main(int argc, char** argv)
   }
 
   string windowNameInput = "Input";
-  for(;;)
+
+  if (TESTFUNC)
   {
     reset(windowNameInput);
+    testFunc();
+    waitKey(0);
+    return 3;
+  }
+
+  for (;;)
+  {
+    reset(windowNameInput);
+
     char ch = waitKey(0);
     switch (ch)
     {
@@ -176,4 +265,5 @@ int main(int argc, char** argv)
       return 0;
     }
   }
+  
 }
