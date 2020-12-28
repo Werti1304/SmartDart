@@ -1,9 +1,11 @@
 #include <iostream>
 #include "opencv2/opencv.hpp"
-#include "Helper.h"
 #include "HSVTrackbar.h"
 #include <thread>
 #include <climits>
+#include "opencv2/photo.hpp"
+
+//#include "ShapeDetect.h"
 
 using namespace cv;
 using namespace std;
@@ -20,10 +22,16 @@ void createResizedWindow(string windowName)
   resizeWindow(windowName, RaspiWidth / 2, RaspiHeight / 2);
 }
 
+void showImgResized(string name, Mat img)
+{
+  createResizedWindow(name);
+  imshow(name, img);
+}
+
 string windowNameMask = "Mask";
 string windowNameOutput = "Output";
 
-Mat inputImage;
+Mat defInputImage;
 Mat inputImageHsv;
 int hsvLowValues[3] = { 0, 0, 0 }; // Default values
 int hsvHighValues[3] = { 255, 255, 255 }; // Default values
@@ -38,13 +46,19 @@ void onColorFilterChange()
   inRange(inputImageHsv, min_Color, max_Color, colorFilteredMask);
 
   Mat result;
-  bitwise_and(inputImage, inputImage, result, colorFilteredMask);
+  bitwise_and(defInputImage, defInputImage, result, colorFilteredMask);
 
   imshow(windowNameMask, colorFilteredMask);
   imshow(windowNameOutput, result);
 }
 
-Mat automatedColorTest()
+enum ColorTestAdjustment
+{
+  Default,
+  HistogramEqualized
+};
+
+Mat automatedColorTest(ColorTestAdjustment colorTestAdjustment, Mat inputImage = defInputImage)
 {
   const string windowNameMaskRed1 = "Mask Red 1";
   const string windowNameMaskRed2 = "Mask Red 2";
@@ -60,30 +74,46 @@ Mat automatedColorTest()
 
   cvtColor(inputImage, inputImageHsv, COLOR_BGR2HSV); // Init inputImageHsv
 
-  // Old values without histogram equalization
-  //Scalar min_Color_red_1_low = Scalar(0, 110, 30);
-  //Scalar max_Color_red_1_high = Scalar(10, 255, 255);
+  Scalar min_Color_red_1_low;
+  Scalar max_Color_red_1_high;
+  Scalar min_Color_red_2_low;
+  Scalar max_Color_red_2_high;
+  Scalar min_Color_green_1_low;
+  Scalar min_Color_green_1_high;
 
-  //Scalar min_Color_red_2_low = Scalar(170, 90, 30);
-  //Scalar max_Color_red_2_high = Scalar(180, 255, 255);
+  switch (colorTestAdjustment)
+  {
+  default:
+  case Default:
+    // Old values without histogram equalization
+    min_Color_red_1_low = Scalar(0, 110, 30);
+    max_Color_red_1_high = Scalar(10, 255, 255);
 
-  //Scalar min_Color_green_1_low = Scalar(60, 100, 5);
-  //Scalar min_Color_green_1_high = Scalar(90, 255, 255);
+    min_Color_red_2_low = Scalar(170, 90, 30);
+    max_Color_red_2_high = Scalar(180, 255, 255);
 
-  Scalar min_Color_red_1_low = Scalar(0, 50, 10);
-  Scalar max_Color_red_1_high = Scalar(10, 255, 255);
+    min_Color_green_1_low = Scalar(60, 100, 5);
+    min_Color_green_1_high = Scalar(90, 255, 255);
+    break;
+  case HistogramEqualized:
+    // Color-Values adjusted to histogram equalization
+    min_Color_red_1_low = Scalar(0, 50, 10);
+    max_Color_red_1_high = Scalar(10, 255, 255);
 
-  Scalar min_Color_red_2_low = Scalar(170, 50, 10);
-  Scalar max_Color_red_2_high = Scalar(180, 255, 255);
+    min_Color_red_2_low = Scalar(170, 50, 10);
+    max_Color_red_2_high = Scalar(180, 255, 255);
 
-  Scalar min_Color_green_1_low = Scalar(50, 30, 0);
-  Scalar min_Color_green_1_high = Scalar(90, 255, 130);
+    min_Color_green_1_low = Scalar(50, 30, 0);
+    min_Color_green_1_high = Scalar(90, 255, 130);
+    break;
+  }
 
   Mat mask_Color_red_1;
   inRange(inputImageHsv, min_Color_red_1_low, max_Color_red_1_high, mask_Color_red_1);
 
   Mat mask_Color_red_2;
   inRange(inputImageHsv, min_Color_red_2_low, max_Color_red_2_high, mask_Color_red_2);
+
 
   Mat mask_Color_green_1;
   inRange(inputImageHsv, min_Color_green_1_low, min_Color_green_1_high, mask_Color_green_1);
@@ -92,21 +122,46 @@ Mat automatedColorTest()
   bitwise_or(mask_Color_red_1, mask_Color_red_2, finalMask);
   bitwise_or(finalMask, mask_Color_green_1, finalMask);
 
+
   Mat result;
   bitwise_and(inputImage, inputImage, result, finalMask);
 
   imshow(windowNameMaskRed1, mask_Color_red_1);
   imshow(windowNameMaskRed2, mask_Color_red_2);
   imshow(windowNameMaskGreen, mask_Color_green_1);
+  imwrite("/home/pi/Desktop/FinalMask.jpg", finalMask);
   imshow(windowNameMaskFinal, finalMask);
   imshow(windowNameOutput, result);
 
   return result;
 }
 
+Mat histogramEqualizationColored(Mat inputImage = defInputImage)
+{
+  Mat ycrcb;
+
+  cvtColor(inputImage, ycrcb, COLOR_BGR2YCrCb);
+
+  vector<Mat> channels;
+  split(ycrcb, channels);
+
+  equalizeHist(channels[0], channels[0]);
+
+  Mat result;
+  merge(channels, ycrcb);
+
+  cvtColor(ycrcb, result, COLOR_YCrCb2BGR);
+
+  string outputWindowName = "Equalized Image (Colored)";
+  createResizedWindow(outputWindowName);
+  imshow(outputWindowName, result);
+
+  return result;
+}
+
 int colorTest()
 {
-  cvtColor(inputImage, inputImageHsv, COLOR_BGR2HSV); // Init inputImageHsv
+  cvtColor(defInputImage, inputImageHsv, COLOR_BGR2HSV); // Init inputImageHsv
 
   // Create windows in right size
   createResizedWindow(windowNameMask);
@@ -145,93 +200,62 @@ int colorTest()
   }
 }
 
-#define TESTFUNC 1
+#define TESTFUNC 0
 void testFunc()
 {
-  /// Histogram Equalization GRAY
-  //cvtColor(inputImage, inputImage, COLOR_BGR2GRAY);
+  Mat src_gray = imread("/home/pi/Desktop/FinalMask.jpg");
 
-  //Mat output;
-  //equalizeHist(inputImage, output);
+  threshold(src_gray, src_gray, 127, 255, 0);
+  blur(src_gray, src_gray, Size(3, 3));
+  
+  int thresh = 400;
+  RNG rng(12345);
 
-  //string outputWindowName = "Equalized Image (Grayscale)";
-  //createResizedWindow(outputWindowName);
-  //imshow(outputWindowName, output);
+  Mat src_gray_denoised;
+  fastNlMeansDenoising(src_gray, src_gray_denoised, 10, 7, 21);
 
-  /// Histogram Equalization COLOR
-  Mat ycrcb;
+  Mat canny_output;
+  Canny(src_gray_denoised, canny_output, thresh, thresh * 2);
+  vector<vector<Point> > contours;
+  vector<Vec4i> hierarchy;
+  findContours(canny_output, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE);
+  Mat drawing = Mat::zeros(canny_output.size(), CV_8UC3);
+  const auto contourAreas = new double[contours.size()];
+  for (size_t i = 0; i < contours.size(); i++)
+  {
+    contourAreas[i] = contourArea(contours.at(i));
+    printf("%.1f,", contourAreas[i]);
 
-  cvtColor(inputImage, ycrcb, COLOR_BGR2YCrCb);
-
-  vector<Mat> channels;
-  split(ycrcb, channels);
-
-  equalizeHist(channels[0], channels[0]);
-
-  Mat result;
-  merge(channels, ycrcb);
-
-  cvtColor(ycrcb, result, COLOR_YCrCb2BGR);
-
-  string outputWindowName = "Equalized Image (Colored)";
-  createResizedWindow(outputWindowName);
-  imshow(outputWindowName, result);
-
-  inputImage = result;
-  inputImage = automatedColorTest();
-
-  //Mat outputDenoised;
-  //fastNlMeansDenoisingColored(inputImage, outputDenoised);
-
-  //string windowOutputDenoised = "Output Denoised";
-  //createResizedWindow(windowOutputDenoised);
-  //imshow(windowOutputDenoised, outputDenoised);
-
-  /// Hough Circle detection
-//  Mat gray;
-//  cvtColor(inputImage, gray, COLOR_BGR2GRAY);
-//  medianBlur(gray, gray, 5);
-//  vector<Vec3f> circles;
-//  HoughCircles(gray, circles, HOUGH_GRADIENT, 1,
-//    gray.rows / 16,  // change this value to detect circles with different distances to each other
-//    100, 30, 10, 100 // change the last two parameters
-//// (min_radius & max_radius) to detect larger circles
-//);
-//  for (size_t i = 0; i < circles.size(); i++)
-//  {
-//    Vec3i c = circles[i];
-//    Point center = Point(c[0], c[1]);
-//    // circle center
-//    circle(inputImage, center, 1, Scalar(0, 100, 100), 3, LINE_AA);
-//    // circle outline
-//    int radius = c[2];
-//    circle(inputImage, center, radius, Scalar(255, 0, 255), 3, LINE_AA);
-//  }
-//
-//  string windowCircle = "Circles";
-//  createResizedWindow(windowCircle);
-//  imshow(windowCircle, inputImage);
+    Scalar color = Scalar(rng.uniform(100, 256), rng.uniform(0, 256), rng.uniform(0, 256));
+    drawContours(drawing, contours, (int)i, color, 2, LINE_8, hierarchy, 0);
+    //contours.at(i).size();
+    //contours.at(i).at(0).x;
+    //contours.at(i).at(0).y;
+  }
+  showImgResized("Contours", drawing);
+  waitKey(0);
 }
 
 void reset(string windowNameInput)
 {
   destroyAllWindows();
   createResizedWindow(windowNameInput);
-  imshow(windowNameInput, inputImage);
+  imshow(windowNameInput, defInputImage);
 }
 
 int main(int argc, char** argv)
 {
-  //inputImage = imread("/home/pi/Desktop/TestImage.jpg"); // Init inputImage
-  VideoCapture cap = VideoCapture(0);
-  cap.set(CAP_PROP_XI_FRAMERATE, 1);
-  cap.set(CAP_PROP_FRAME_WIDTH, 2592);
-  cap.set(CAP_PROP_FRAME_HEIGHT, 1944);
-  cap.set(CAP_PROP_AUTO_EXPOSURE, 0.25);
-  cap.read(inputImage);
-  cvtColor(inputImage, inputImage, COLOR_RGB2BGR); // Needed for VideoCapture b/c OpenCV is dumb
+  defInputImage = imread("/home/pi/Desktop/TestImage5.jpg"); // Init inputImage
+  //defInputImage = imread("/home/pi/Desktop/MaskGreen.jpg"); // Init inputImage
+  //VideoCapture cap = VideoCapture(0);
+  //cap.set(CAP_PROP_XI_FRAMERATE, 1);
+  //cap.set(CAP_PROP_FRAME_WIDTH, 2592);
+  //cap.set(CAP_PROP_FRAME_HEIGHT, 1944);
+  //cap.set(CAP_PROP_AUTO_EXPOSURE, 0.25);
+  //cap.read(inputImage);
+  //cvtColor(inputImage, inputImage, COLOR_RGB2BGR); // Needed for VideoCapture b/c OpenCV is dumb
 
-  if(inputImage.data == nullptr)
+  if(defInputImage.data == nullptr)
   {
     std::cout << "Couldn't find image, closing!";
     return -1;
@@ -246,6 +270,7 @@ int main(int argc, char** argv)
     waitKey(0);
     return 3;
   }
+  Mat result;
 
   for (;;)
   {
@@ -255,14 +280,25 @@ int main(int argc, char** argv)
     switch (ch)
     {
     case 'a':
-      automatedColorTest();
+      automatedColorTest(Default);
       waitKey(0);
       break;
     case 'b':
       colorTest();
       break;
+    case 'c':
+      {
+        result = histogramEqualizationColored();
+        automatedColorTest(HistogramEqualized, result);
+        waitKey(0);
+      }
+      break;
+    case 't':
+      testFunc();
+      waitKey(0);
     case 'q':
       return 0;
+    default: ;
     }
   }
   

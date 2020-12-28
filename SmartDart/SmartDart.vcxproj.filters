@@ -8,6 +8,7 @@
     <ClCompile Include="HSVTrackbar.cpp">
       <Filter>ScalarTrackbar</Filter>
     </ClCompile>
+    <ClCompile Include="ShapeDetect.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="ScalarTrackbar">
@@ -21,5 +22,6 @@
     <ClInclude Include="HSVTrackbar.h">
       <Filter>ScalarTrackbar</Filter>
     </ClInclude>
+    <ClInclude Include="ShapeDetect.h" />
   </ItemGroup>
 </Project>

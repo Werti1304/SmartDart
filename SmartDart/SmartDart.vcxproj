@@ -90,32 +90,34 @@
     <ClCompile Include="HSVTrackbar.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="ScalarTrackbar.cpp" />
+    <ClCompile Include="ShapeDetect.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="HSVTrackbar.h" />
     <ClInclude Include="ScalarTrackbar.h" />
+    <ClInclude Include="ShapeDetect.h" />
   </ItemGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Link>
-      <LibraryDependencies>opencv_core;opencv_highgui;opencv_imgcodecs;opencv_imgproc;opencv_video;opencv_videoio;pthread;jpeg;gcc_s;stdc++;tbb;rt;dl;m;z;png16;c;%(LibraryDependencies)</LibraryDependencies>
+      <LibraryDependencies>opencv_core;opencv_photo;opencv_highgui;opencv_imgcodecs;opencv_imgproc;opencv_video;opencv_videoio;pthread;jpeg;gcc_s;stdc++;tbb;rt;dl;m;z;png16;c;%(LibraryDependencies)</LibraryDependencies>
       <SharedLibrarySearchPath>/usr/lib/x86_64-linux-gnu/;/usr/lib/gcc/x86_64-linux-gnu/7;/usr/local/lib;/lib/x86_64-linux-gnu/;%(SharedLibrarySearchPath);%(Link.SharedLibrarySearchPath)</SharedLibrarySearchPath>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <Link>
-      <LibraryDependencies>opencv_core;opencv_highgui;opencv_imgcodecs;opencv_imgproc;opencv_video;opencv_videoio;pthread;jpeg;gcc_s;stdc++;tbb;rt;dl;m;z;png16;c;%(LibraryDependencies)</LibraryDependencies>
+      <LibraryDependencies>opencv_core;opencv_photo;opencv_highgui;opencv_imgcodecs;opencv_imgproc;opencv_video;opencv_videoio;pthread;jpeg;gcc_s;stdc++;tbb;rt;dl;m;z;png16;c;%(LibraryDependencies)</LibraryDependencies>
       <SharedLibrarySearchPath>/usr/lib/x86_64-linux-gnu/;/usr/lib/gcc/x86_64-linux-gnu/7;/usr/local/lib;/lib/x86_64-linux-gnu/;%(SharedLibrarySearchPath);%(Link.SharedLibrarySearchPath)</SharedLibrarySearchPath>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
     <Link>
-      <LibraryDependencies>opencv_core;opencv_highgui;opencv_imgcodecs;opencv_imgproc;opencv_video;opencv_videoio;pthread;jpeg;gcc_s;stdc++;tbb;rt;dl;m;z;png16;c;%(LibraryDependencies)</LibraryDependencies>
+      <LibraryDependencies>opencv_core;opencv_photo;opencv_highgui;opencv_imgcodecs;opencv_imgproc;opencv_video;opencv_videoio;pthread;jpeg;gcc_s;stdc++;tbb;rt;dl;m;z;png16;c;%(LibraryDependencies)</LibraryDependencies>
       <SharedLibrarySearchPath>/usr/lib/x86_64-linux-gnu/;/usr/lib/gcc/x86_64-linux-gnu/7;/usr/local/lib;/lib/x86_64-linux-gnu/;%(SharedLibrarySearchPath);%(Link.SharedLibrarySearchPath)</SharedLibrarySearchPath>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x86'">
     <Link>
-      <LibraryDependencies>opencv_core;opencv_highgui;opencv_imgcodecs;opencv_imgproc;opencv_video;opencv_videoio;pthread;jpeg;gcc_s;stdc++;tbb;rt;dl;m;z;png16;c;%(LibraryDependencies)</LibraryDependencies>
+      <LibraryDependencies>opencv_core;opencv_photo;opencv_highgui;opencv_imgcodecs;opencv_imgproc;opencv_video;opencv_videoio;pthread;jpeg;gcc_s;stdc++;tbb;rt;dl;m;z;png16;c;%(LibraryDependencies)</LibraryDependencies>
       <SharedLibrarySearchPath>/usr/lib/x86_64-linux-gnu/;/usr/lib/gcc/x86_64-linux-gnu/7;/usr/local/lib;/lib/x86_64-linux-gnu/;%(SharedLibrarySearchPath);%(Link.SharedLibrarySearchPath)</SharedLibrarySearchPath>
     </Link>
   </ItemDefinitionGroup>
