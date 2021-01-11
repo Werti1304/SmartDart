@@ -122,6 +122,14 @@ Mat automatedColorTest(ColorTestAdjustment colorTestAdjustment, Mat inputImage =
   bitwise_or(mask_Color_red_1, mask_Color_red_2, finalMask);
   bitwise_or(finalMask, mask_Color_green_1, finalMask);
 
+  //medianBlur(finalMask, finalMask, 5);
+  //fastNlMeansDenoising(finalMask, finalMask, 10, 7, 21);
+ 
+  // Sharpen image
+  /*Mat sharpening_kernel = (Mat_<double>(3, 3) << -1, -1, -1,
+    -1, 9, -1,
+    -1, -1, -1);*/
+  //filter2D(finalMask, finalMask, -1, sharpening_kernel);
 
   Mat result;
   bitwise_and(inputImage, inputImage, result, finalMask);
@@ -130,6 +138,7 @@ Mat automatedColorTest(ColorTestAdjustment colorTestAdjustment, Mat inputImage =
   imshow(windowNameMaskRed2, mask_Color_red_2);
   imshow(windowNameMaskGreen, mask_Color_green_1);
   imwrite("/home/pi/Desktop/FinalMask.jpg", finalMask);
+  imwrite("/home/pi/Desktop/Result.jpg", result);
   imshow(windowNameMaskFinal, finalMask);
   imshow(windowNameOutput, result);
 
@@ -200,39 +209,100 @@ int colorTest()
   }
 }
 
+template<class T>
+void doListStats(list<T> list)
+{
+  T min = numeric_limits<T>::max();
+  T max = 0;
+  double sum;
+
+  for (auto i : list)
+  {
+    if (i < min)
+    {
+      min = i;
+    }
+    if (i > max)
+    {
+      max = i;
+    }
+    sum += i;
+  }
+
+  T valCount = list.size();
+  T mean = sum / valCount;
+
+  std::cout << "Values: " << valCount << "\nSum: " << sum << "\nMean: " << mean << "\nMin: " << min << "\nMax: " << max << endl;
+}
+
+Mat src_gray;
+int thresh = 50;
+RNG rng(12345);
+int minArea = 100;
+string contourWindow = "Contours";
+string cannyWindow = "Canny Edge Detection";
+
+list<int> executionTimeList;
+int executionNum = 1000;
+
+static void thresh_callback(int, void*)
+{ 
+  Mat canny_output;
+  vector<vector<Point> > contours;
+  vector<Vec4i> hierarchy;
+
+  for (int i = 0; i < executionNum; i++)
+  {
+    auto start = std::chrono::high_resolution_clock::now();
+
+    Canny(src_gray, canny_output, thresh, thresh * 2);
+
+    findContours(canny_output, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE);
+
+    auto finish = std::chrono::high_resolution_clock::now();
+
+    auto microseconds = std::chrono::duration_cast<std::chrono::milliseconds>(finish - start);
+    auto executionTime = microseconds.count();
+    std::cout << executionTime << "ms\n";
+    executionTimeList.push_back(executionTime);
+  }
+
+  Mat drawing = Mat::zeros(canny_output.size(), CV_8UC3);
+  for (size_t i = 0; i < contours.size(); i++)
+  {
+    if (contourArea(contours.at(i)) > minArea)
+    {
+      Scalar color = Scalar(rng.uniform(50, 256), rng.uniform(0, 256), rng.uniform(0, 256));
+      drawContours(drawing, contours, (int)i, color, 2, LINE_8, hierarchy, 0);
+    }
+  }
+
+  doListStats(executionTimeList);
+
+  imshow(contourWindow, drawing);
+  imshow(cannyWindow, canny_output);
+}
+
 #define TESTFUNC 0
 void testFunc()
 {
-  Mat src_gray = imread("/home/pi/Desktop/FinalMask.jpg");
+  Mat src = imread("/home/pi/Desktop/Result.jpg");
+  //src = imread("/home/pi/Desktop/TestImage.jpg");
 
-  threshold(src_gray, src_gray, 127, 255, 0);
+  createResizedWindow(contourWindow);
+  createResizedWindow(cannyWindow);
+
+  cvtColor(src, src_gray, COLOR_BGR2GRAY);
   blur(src_gray, src_gray, Size(3, 3));
-  
-  int thresh = 400;
-  RNG rng(12345);
 
-  Mat src_gray_denoised;
-  fastNlMeansDenoising(src_gray, src_gray_denoised, 10, 7, 21);
+  const char* source_window = "Source";
+  showImgResized(source_window, src);
+  const int max_thresh = 255;
+  const int maxArea = 500;
+  createTrackbar("Canny thresh:", source_window, &thresh, max_thresh, thresh_callback);
+  createTrackbar("MinArea:", source_window, &minArea, maxArea, thresh_callback);
+  thresh_callback(0, 0);
 
-  Mat canny_output;
-  Canny(src_gray_denoised, canny_output, thresh, thresh * 2);
-  vector<vector<Point> > contours;
-  vector<Vec4i> hierarchy;
-  findContours(canny_output, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE);
-  Mat drawing = Mat::zeros(canny_output.size(), CV_8UC3);
-  const auto contourAreas = new double[contours.size()];
-  for (size_t i = 0; i < contours.size(); i++)
-  {
-    contourAreas[i] = contourArea(contours.at(i));
-    printf("%.1f,", contourAreas[i]);
-
-    Scalar color = Scalar(rng.uniform(100, 256), rng.uniform(0, 256), rng.uniform(0, 256));
-    drawContours(drawing, contours, (int)i, color, 2, LINE_8, hierarchy, 0);
-    //contours.at(i).size();
-    //contours.at(i).at(0).x;
-    //contours.at(i).at(0).y;
-  }
-  showImgResized("Contours", drawing);
   waitKey(0);
 }
 
@@ -245,7 +315,8 @@ void reset(string windowNameInput)
 
 int main(int argc, char** argv)
 {
-  defInputImage = imread("/home/pi/Desktop/TestImage5.jpg"); // Init inputImage
+  //defInputImage = imread("/home/pi/Desktop/TestImage5.jpg"); // Init inputImage
+  defInputImage = imread("/home/pi/Desktop/TestImage.jpg"); // Init inputImage
   //defInputImage = imread("/home/pi/Desktop/MaskGreen.jpg"); // Init inputImage
   //VideoCapture cap = VideoCapture(0);
   //cap.set(CAP_PROP_XI_FRAMERATE, 1);
