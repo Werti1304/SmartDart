@@ -3,7 +3,11 @@
 #include "HSVTrackbar.h"
 #include <thread>
 #include <climits>
+
+#include "DartAreas.h"
 #include "opencv2/photo.hpp"
+#include "WindowHelper.h"
+#include "ImageStacker.h"
 
 //#include "ShapeDetect.h"
 
@@ -15,18 +19,11 @@ using namespace std;
 
 #define RaspiWidth 1280
 #define RaspiHeight 720
+#define RaspiPath "/home/pi/Desktop/"
 
-void createResizedWindow(string windowName)
-{
-  namedWindow(windowName, WINDOW_NORMAL); // WINDOW_NORMAL needed for resizeWindow() func
-  resizeWindow(windowName, RaspiWidth / 2, RaspiHeight / 2);
-}
+WindowHelper win(RaspiPath, RaspiHeight / 2, RaspiWidth / 2);
 
-void showImgResized(string name, Mat img)
-{
-  createResizedWindow(name);
-  imshow(name, img);
-}
+string windowNameInput = "Input";
 
 string windowNameMask = "Mask";
 string windowNameOutput = "Output";
@@ -35,6 +32,34 @@ Mat defInputImage;
 Mat inputImageHsv;
 int hsvLowValues[3] = { 0, 0, 0 }; // Default values
 int hsvHighValues[3] = { 255, 255, 255 }; // Default values
+
+#pragma region Helper
+template<class T>
+void doListStats(list<T> list)
+{
+  T min = numeric_limits<T>::max();
+  T max = 0;
+  double sum;
+
+  for (auto i : list)
+  {
+    if (i < min)
+    {
+      min = i;
+    }
+    if (i > max)
+    {
+      max = i;
+    }
+    sum += i;
+  }
+
+  T valCount = list.size();
+  T mean = sum / valCount;
+
+  std::cout << "Values: " << valCount << "\nSum: " << sum << "\nMean: " << mean << "\nMin: " << min << "\nMax: " << max << endl;
+}
+#pragma endregion
 
 void onColorFilterChange()
 {
@@ -60,17 +85,19 @@ enum ColorTestAdjustment
 
 Mat automatedColorTest(ColorTestAdjustment colorTestAdjustment, Mat inputImage = defInputImage)
 {
+  imshow(windowNameInput, inputImage);
+
   const string windowNameMaskRed1 = "Mask Red 1";
   const string windowNameMaskRed2 = "Mask Red 2";
   const string windowNameMaskGreen = "Mask Green";
   const string windowNameMaskFinal = "Mask Final";
 
-  createResizedWindow(windowNameMaskRed1);
-  createResizedWindow(windowNameMaskRed2);
-  createResizedWindow(windowNameMaskGreen);
-  createResizedWindow(windowNameMaskFinal);
+  win.namedWindowResized(windowNameMaskRed1);
+  win.namedWindowResized(windowNameMaskRed2);
+  win.namedWindowResized(windowNameMaskGreen);
+  win.namedWindowResized(windowNameMaskFinal);
 
-  createResizedWindow(windowNameOutput);
+  win.namedWindowResized(windowNameOutput);
 
   cvtColor(inputImage, inputImageHsv, COLOR_BGR2HSV); // Init inputImageHsv
 
@@ -97,6 +124,15 @@ Mat automatedColorTest(ColorTestAdjustment colorTestAdjustment, Mat inputImage =
     break;
   case HistogramEqualized:
     // Color-Values adjusted to histogram equalization
+    //min_Color_red_1_low = Scalar(0, 50, 10);
+    //max_Color_red_1_high = Scalar(10, 255, 255);
+
+    //min_Color_red_2_low = Scalar(170, 50, 10);
+    //max_Color_red_2_high = Scalar(180, 255, 255);
+
+    //min_Color_green_1_low = Scalar(50, 30, 0);
+    //min_Color_green_1_high = Scalar(90, 255, 130);
+
     min_Color_red_1_low = Scalar(0, 50, 10);
     max_Color_red_1_high = Scalar(10, 255, 255);
 
@@ -113,7 +149,6 @@ Mat automatedColorTest(ColorTestAdjustment colorTestAdjustment, Mat inputImage =
 
   Mat mask_Color_red_2;
   inRange(inputImageHsv, min_Color_red_2_low, max_Color_red_2_high, mask_Color_red_2);
-
 
   Mat mask_Color_green_1;
   inRange(inputImageHsv, min_Color_green_1_low, min_Color_green_1_high, mask_Color_green_1);
@@ -147,6 +182,8 @@ Mat automatedColorTest(ColorTestAdjustment colorTestAdjustment, Mat inputImage =
 
 Mat histogramEqualizationColored(Mat inputImage = defInputImage)
 {
+  imshow(windowNameInput, inputImage);
+
   Mat ycrcb;
 
   cvtColor(inputImage, ycrcb, COLOR_BGR2YCrCb);
@@ -162,19 +199,126 @@ Mat histogramEqualizationColored(Mat inputImage = defInputImage)
   cvtColor(ycrcb, result, COLOR_YCrCb2BGR);
 
   string outputWindowName = "Equalized Image (Colored)";
-  createResizedWindow(outputWindowName);
+  win.namedWindowResized(outputWindowName);
   imshow(outputWindowName, result);
 
   return result;
 }
 
-int colorTest()
+vector<vector<Point>> contours;
+Mat automatedCanny(Mat inputImage = defInputImage, int minAreaParam = 15, int cannyParam = 50)
 {
-  cvtColor(defInputImage, inputImageHsv, COLOR_BGR2HSV); // Init inputImageHsv
+  Mat canny_output;
+
+  vector<Vec4i> hierarchy;
+  Mat src_gray;
+
+  cvtColor(inputImage, src_gray, COLOR_BGR2GRAY);
+  blur(src_gray, src_gray, Size(3, 3));
+
+  Canny(src_gray, canny_output, cannyParam, cannyParam * 2);
+
+  findContours(canny_output, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE);
+
+  Mat drawing = Mat::zeros(canny_output.size(), CV_8UC3);
+  RNG rng(time(0)); // RNG with seed of current time
+  
+  for (size_t i = 0; i < contours.size(); i++)
+  {
+    auto cContour = contours.at(i);
+    if (contourArea(cContour) > minAreaParam)
+    {
+      Scalar color = Scalar(rng.uniform(50, 256), rng.uniform(0, 256), rng.uniform(0, 256));
+      Scalar invColor = cv::Scalar::all(255) - color;
+      drawContours(drawing, contours, static_cast<int>(i), color, 2, LINE_8, hierarchy, 0);
+
+      DartAreas::DartArea dartArea = DartAreas::DartArea(cContour);
+      for (const cv::Point pt : dartArea.corners)
+      {
+        cv::circle(drawing, pt, 3, color, 3);
+      }
+    }
+  }
+  imwrite("/home/pi/Desktop/MarkedContours.png", drawing);
+  win.imgshowResized("Colored Contours", drawing);
+  win.imgshowResized("Canny Edge Detection", canny_output);
+
+  return canny_output;
+}
+
+#pragma region TestFunctions
+Mat src_gray;
+int thresh = 50;
+int minArea = 150;
+string contourWindow = "Contours";
+string cannyWindow = "Canny Edge Detection";
+
+static void CannyTestThreshCallback(int, void*)
+{
+  Mat canny_output;
+  vector<vector<Point> > contours;
+  vector<Vec4i> hierarchy;
+
+  Canny(src_gray, canny_output, thresh, thresh * 2);
+
+  findContours(canny_output, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE);
+
+  Mat drawing = Mat::zeros(canny_output.size(), CV_8UC3);
+  RNG rng(time(0)); // RNG with seed of current time
+
+  for (size_t i = 0; i < contours.size(); i++)
+  {
+    // Perimeter
+    vector<Point_<int>> approx_curve;
+    auto currentContour = contours.at(i);
+    auto epsilon = 0.1 * arcLength(currentContour, true);
+    approxPolyDP(currentContour, approx_curve, epsilon, true);
+    auto perimeter = arcLength(approx_curve, true);
+
+    //if (contourArea(contours.at(i)) > minArea)
+    if (perimeter > minArea)
+    {
+      cout << perimeter << "\n";
+      Scalar color = Scalar(rng.uniform(50, 256), rng.uniform(0, 256), rng.uniform(0, 256));
+      
+      drawContours(drawing, contours, (int)i, color, 2, LINE_8, hierarchy, 0);
+    }
+  }
+
+  imshow(contourWindow, drawing);
+  imshow(cannyWindow, canny_output);
+}
+
+void cannyTest(Mat inputImage = defInputImage)
+{
+  imshow(windowNameInput, inputImage);
+
+  win.namedWindowResized(contourWindow);
+  win.namedWindowResized(cannyWindow);
+
+  cvtColor(inputImage, src_gray, COLOR_BGR2GRAY);
+  blur(src_gray, src_gray, Size(3, 3));
+
+  const char* source_window = "Source";
+  win.imgshowResized(source_window, inputImage);
+  const int max_thresh = 255;
+  const int maxArea = 500;
+  createTrackbar("Canny thresh:", source_window, &thresh, max_thresh, CannyTestThreshCallback);
+  createTrackbar("MinArea:", source_window, &minArea, maxArea, CannyTestThreshCallback);
+  CannyTestThreshCallback(0, 0);
+
+  waitKey(0);
+}
+
+void colorTest(Mat inputImage = defInputImage)
+{
+  imshow(windowNameInput, inputImage);
+
+  cvtColor(inputImage, inputImageHsv, COLOR_BGR2HSV); // Init inputImageHsv
 
   // Create windows in right size
-  createResizedWindow(windowNameMask);
-  createResizedWindow(windowNameOutput);
+  win.namedWindowResized(windowNameMask);
+  win.namedWindowResized(windowNameOutput);
 
   // Create trackbar for low bar of colors
   HSVTrackbar trackbarLow("HSV-Trackbar Low", hsvLowValues);
@@ -185,14 +329,14 @@ int colorTest()
   // First run to init the images
   onColorFilterChange();
 
-  for(;;)
+  for (;;)
   {
     char ch = waitKey(0);
-    if(ch == 'q')
+    if (ch == 'q')
     {
-      return 0;
+      return;
     }
-    if(ch == 'c')
+    if (ch == 'c')
     {
       trackbarLow.setCallback(onColorFilterChange);
       trackbarHigh.setCallback(onColorFilterChange);
@@ -209,114 +353,45 @@ int colorTest()
   }
 }
 
-template<class T>
-void doListStats(list<T> list)
-{
-  T min = numeric_limits<T>::max();
-  T max = 0;
-  double sum;
+#pragma endregion
 
-  for (auto i : list)
-  {
-    if (i < min)
-    {
-      min = i;
-    }
-    if (i > max)
-    {
-      max = i;
-    }
-    sum += i;
-  }
-
-  T valCount = list.size();
-  T mean = sum / valCount;
-
-  std::cout << "Values: " << valCount << "\nSum: " << sum << "\nMean: " << mean << "\nMin: " << min << "\nMax: " << max << endl;
-}
-
-Mat src_gray;
-int thresh = 50;
-RNG rng(12345);
-int minArea = 100;
-string contourWindow = "Contours";
-string cannyWindow = "Canny Edge Detection";
-
-list<int> executionTimeList;
-int executionNum = 1000;
-
-static void thresh_callback(int, void*)
-{ 
-  Mat canny_output;
-  vector<vector<Point> > contours;
-  vector<Vec4i> hierarchy;
-
-  for (int i = 0; i < executionNum; i++)
-  {
-    auto start = std::chrono::high_resolution_clock::now();
-
-    Canny(src_gray, canny_output, thresh, thresh * 2);
-
-    findContours(canny_output, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE);
-
-    auto finish = std::chrono::high_resolution_clock::now();
-
-    auto microseconds = std::chrono::duration_cast<std::chrono::milliseconds>(finish - start);
-    auto executionTime = microseconds.count();
-    std::cout << executionTime << "ms\n";
-    executionTimeList.push_back(executionTime);
-  }
-
-  Mat drawing = Mat::zeros(canny_output.size(), CV_8UC3);
-  for (size_t i = 0; i < contours.size(); i++)
-  {
-    if (contourArea(contours.at(i)) > minArea)
-    {
-      Scalar color = Scalar(rng.uniform(50, 256), rng.uniform(0, 256), rng.uniform(0, 256));
-      drawContours(drawing, contours, (int)i, color, 2, LINE_8, hierarchy, 0);
-    }
-  }
-
-  doListStats(executionTimeList);
-
-  imshow(contourWindow, drawing);
-  imshow(cannyWindow, canny_output);
-}
 
 #define TESTFUNC 0
 void testFunc()
 {
-  Mat src = imread("/home/pi/Desktop/Result.jpg");
-  //src = imread("/home/pi/Desktop/TestImage.jpg");
+  Mat input = defInputImage;
+  Mat eqHistogram = histogramEqualizationColored(input);
+  Mat automatedColor = automatedColorTest(HistogramEqualized, eqHistogram);
+  Mat cannyOutput = automatedCanny(automatedColor);
 
-  createResizedWindow(contourWindow);
-  createResizedWindow(cannyWindow);
+  Mat markedImg;
+  cv::cvtColor(cannyOutput, markedImg, COLOR_GRAY2BGR);
 
-  cvtColor(src, src_gray, COLOR_BGR2GRAY);
-  blur(src_gray, src_gray, Size(3, 3));
+  DartAreas dartAreas(markedImg, contours);
 
-  const char* source_window = "Source";
-  showImgResized(source_window, src);
-  const int max_thresh = 255;
-  const int maxArea = 500;
-  createTrackbar("Canny thresh:", source_window, &thresh, max_thresh, thresh_callback);
-  createTrackbar("MinArea:", source_window, &minArea, maxArea, thresh_callback);
-  thresh_callback(0, 0);
+  markedImg = dartAreas.markAreas(5, Scalar(0, 255, 0), 5);
 
-  waitKey(0);
+  win.imgshowResized("Marked img", markedImg);
 }
 
 void reset(string windowNameInput)
 {
   destroyAllWindows();
-  createResizedWindow(windowNameInput);
+  win.namedWindowResized(windowNameInput);
   imshow(windowNameInput, defInputImage);
 }
 
 int main(int argc, char** argv)
 {
+  string homePath = "/home/pi/Desktop/";
+
+  Mat badQualityImage = win.imreadRel("TestImage5.jpg");
+  Mat hqFinalMask = win.imreadRel("FinalMask2.jpg");
+  Mat hqColorResult = win.imreadRel("Result.jpg");
+  Mat hqContours = win.imreadRel("Contours.jpg");
+
   //defInputImage = imread("/home/pi/Desktop/TestImage5.jpg"); // Init inputImage
-  defInputImage = imread("/home/pi/Desktop/TestImage.jpg"); // Init inputImage
+  defInputImage = win.imreadRel("TestImage.jpg"); // Init inputImage
   //defInputImage = imread("/home/pi/Desktop/MaskGreen.jpg"); // Init inputImage
   //VideoCapture cap = VideoCapture(0);
   //cap.set(CAP_PROP_XI_FRAMERATE, 1);
@@ -331,8 +406,20 @@ int main(int argc, char** argv)
     std::cout << "Couldn't find image, closing!";
     return -1;
   }
-
-  string windowNameInput = "Input";
+  //reset(windowNameInput);
+  //waitKey(0);
+  //ImageStacker imageStacker("lol", RaspiWidth, RaspiHeight);
+  //imageStacker.addImage(defInputImage);
+  //imageStacker.addImage(badQualityImage);
+  //imageStacker.addImage(hqFinalMask);
+  //imageStacker.addImage(hqColorResult);
+  //imageStacker.addImage(hqContours);
+  //for (int i = 0; i < 5; i++)
+  //{
+  //  imageStacker.addImage(defInputImage);
+  //}
+  //imageStacker.addImage(defInputImage, true);
+  //waitKey(0);
 
   if (TESTFUNC)
   {
@@ -355,16 +442,24 @@ int main(int argc, char** argv)
       waitKey(0);
       break;
     case 'b':
-      colorTest();
+      colorTest(histogramEqualizationColored());
       break;
     case 'c':
       {
-        result = histogramEqualizationColored();
-        automatedColorTest(HistogramEqualized, result);
+        result = histogramEqualizationColored(badQualityImage);
+        result = automatedColorTest(HistogramEqualized, result);
+        result = automatedCanny(result);
+        
         waitKey(0);
       }
       break;
+    case 'd':
+    {
+      cannyTest(hqColorResult);
+    }
+    break;
     case 't':
+      defInputImage = badQualityImage;
       testFunc();
       waitKey(0);
     case 'q':
@@ -372,5 +467,4 @@ int main(int argc, char** argv)
     default: ;
     }
   }
-  
 }

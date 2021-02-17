@@ -87,15 +87,19 @@
     <IncludePath>/usr/local/include/opencv4</IncludePath>
   </PropertyGroup>
   <ItemGroup>
+    <ClCompile Include="DartAreas.cpp" />
     <ClCompile Include="HSVTrackbar.cpp" />
+    <ClCompile Include="ImageStacker.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="ScalarTrackbar.cpp" />
-    <ClCompile Include="ShapeDetect.cpp" />
+    <ClCompile Include="WindowHelper.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="DartAreas.h" />
     <ClInclude Include="HSVTrackbar.h" />
+    <ClInclude Include="ImageStacker.h" />
     <ClInclude Include="ScalarTrackbar.h" />
-    <ClInclude Include="ShapeDetect.h" />
+    <ClInclude Include="WindowHelper.h" />
   </ItemGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Link>
