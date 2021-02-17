@@ -98,7 +98,9 @@
     <ClInclude Include="DartAreas.h" />
     <ClInclude Include="HSVTrackbar.h" />
     <ClInclude Include="ImageStacker.h" />
+    <ClInclude Include="Resources.h" />
     <ClInclude Include="ScalarTrackbar.h" />
+    <ClInclude Include="Types.h" />
     <ClInclude Include="WindowHelper.h" />
   </ItemGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">

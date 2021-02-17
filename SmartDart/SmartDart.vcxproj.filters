@@ -34,5 +34,7 @@
     <ClInclude Include="DartAreas.h">
       <Filter>DartArea</Filter>
     </ClInclude>
+    <ClInclude Include="Types.h" />
+    <ClInclude Include="Resources.h" />
   </ItemGroup>
 </Project>

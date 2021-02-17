@@ -8,6 +8,8 @@
 #include "opencv2/photo.hpp"
 #include "WindowHelper.h"
 #include "ImageStacker.h"
+#include "Resources.h"
+#include "Types.h"
 
 //#include "ShapeDetect.h"
 
@@ -77,14 +79,16 @@ void onColorFilterChange()
   imshow(windowNameOutput, result);
 }
 
-enum ColorTestAdjustment
-{
-  Default,
-  HistogramEqualized
-};
+// Helper for param packs
+template <typename... T> struct param_pack {};
 
-Mat automatedColorTest(ColorTestAdjustment colorTestAdjustment, Mat inputImage = defInputImage)
+template<typename ...ColorFiltersT>
+Mat automatedColorTest(const Mat& inputImage = defInputImage, ColorFiltersT... colorFiltersParam) // ... allows unlimited filters
 {
+  // Assert that all passed params are the right type
+  //static_assert(std::is_same<param_pack<const HSVColorFilter>, param_pack<ColorFiltersT...>>::value, "Arguments must be HSVColorFilter.");
+  HSVColorFilter colorFilters[]{ colorFiltersParam... };
+
   imshow(windowNameInput, inputImage);
 
   const string windowNameMaskRed1 = "Mask Red 1";
@@ -98,64 +102,16 @@ Mat automatedColorTest(ColorTestAdjustment colorTestAdjustment, Mat inputImage =
   win.namedWindowResized(windowNameMaskFinal);
 
   win.namedWindowResized(windowNameOutput);
-
+  
   cvtColor(inputImage, inputImageHsv, COLOR_BGR2HSV); // Init inputImageHsv
 
-  Scalar min_Color_red_1_low;
-  Scalar max_Color_red_1_high;
-  Scalar min_Color_red_2_low;
-  Scalar max_Color_red_2_high;
-  Scalar min_Color_green_1_low;
-  Scalar min_Color_green_1_high;
-
-  switch (colorTestAdjustment)
+  Mat finalMask = Mat::zeros(inputImageHsv.rows, inputImageHsv.cols, CV_8UC1);
+  for(HSVColorFilter colorFilter : colorFilters)
   {
-  default:
-  case Default:
-    // Old values without histogram equalization
-    min_Color_red_1_low = Scalar(0, 110, 30);
-    max_Color_red_1_high = Scalar(10, 255, 255);
-
-    min_Color_red_2_low = Scalar(170, 90, 30);
-    max_Color_red_2_high = Scalar(180, 255, 255);
-
-    min_Color_green_1_low = Scalar(60, 100, 5);
-    min_Color_green_1_high = Scalar(90, 255, 255);
-    break;
-  case HistogramEqualized:
-    // Color-Values adjusted to histogram equalization
-    //min_Color_red_1_low = Scalar(0, 50, 10);
-    //max_Color_red_1_high = Scalar(10, 255, 255);
-
-    //min_Color_red_2_low = Scalar(170, 50, 10);
-    //max_Color_red_2_high = Scalar(180, 255, 255);
-
-    //min_Color_green_1_low = Scalar(50, 30, 0);
-    //min_Color_green_1_high = Scalar(90, 255, 130);
-
-    min_Color_red_1_low = Scalar(0, 50, 10);
-    max_Color_red_1_high = Scalar(10, 255, 255);
-
-    min_Color_red_2_low = Scalar(170, 50, 10);
-    max_Color_red_2_high = Scalar(180, 255, 255);
-
-    min_Color_green_1_low = Scalar(50, 30, 0);
-    min_Color_green_1_high = Scalar(90, 255, 130);
-    break;
+    Mat tmpMask;
+    inRange(inputImageHsv, colorFilter.min_Color, colorFilter.max_Color, tmpMask);
+    bitwise_or(finalMask, tmpMask, finalMask);
   }
-
-  Mat mask_Color_red_1;
-  inRange(inputImageHsv, min_Color_red_1_low, max_Color_red_1_high, mask_Color_red_1);
-
-  Mat mask_Color_red_2;
-  inRange(inputImageHsv, min_Color_red_2_low, max_Color_red_2_high, mask_Color_red_2);
-
-  Mat mask_Color_green_1;
-  inRange(inputImageHsv, min_Color_green_1_low, min_Color_green_1_high, mask_Color_green_1);
-
-  Mat finalMask;
-  bitwise_or(mask_Color_red_1, mask_Color_red_2, finalMask);
-  bitwise_or(finalMask, mask_Color_green_1, finalMask);
 
   //medianBlur(finalMask, finalMask, 5);
   //fastNlMeansDenoising(finalMask, finalMask, 10, 7, 21);
@@ -169,11 +125,8 @@ Mat automatedColorTest(ColorTestAdjustment colorTestAdjustment, Mat inputImage =
   Mat result;
   bitwise_and(inputImage, inputImage, result, finalMask);
 
-  imshow(windowNameMaskRed1, mask_Color_red_1);
-  imshow(windowNameMaskRed2, mask_Color_red_2);
-  imshow(windowNameMaskGreen, mask_Color_green_1);
-  imwrite("/home/pi/Desktop/FinalMask.jpg", finalMask);
-  imwrite("/home/pi/Desktop/Result.jpg", result);
+  //imwrite("/home/pi/Desktop/FinalMask.jpg", finalMask);
+  //imwrite("/home/pi/Desktop/Result.jpg", result);
   imshow(windowNameMaskFinal, finalMask);
   imshow(windowNameOutput, result);
 
@@ -218,7 +171,7 @@ Mat automatedCanny(Mat inputImage = defInputImage, int minAreaParam = 15, int ca
 
   Canny(src_gray, canny_output, cannyParam, cannyParam * 2);
 
-  findContours(canny_output, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE);
+  findContours(canny_output, contours, hierarchy, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
 
   Mat drawing = Mat::zeros(canny_output.size(), CV_8UC3);
   RNG rng(time(0)); // RNG with seed of current time
@@ -361,17 +314,25 @@ void testFunc()
 {
   Mat input = defInputImage;
   Mat eqHistogram = histogramEqualizationColored(input);
-  Mat automatedColor = automatedColorTest(HistogramEqualized, eqHistogram);
-  Mat cannyOutput = automatedCanny(automatedColor);
+  Mat automatedColorRed = automatedColorTest(eqHistogram, Resources::red_1_histogram, Resources::red_2_histogram);
+  Mat automatedColorGreen = automatedColorTest(eqHistogram, Resources::green_histogram );
+  Mat cannyOutputRed = automatedCanny(automatedColorRed);
+  Mat cannyOutputGreen = automatedCanny(automatedColorGreen);
 
-  Mat markedImg;
-  cv::cvtColor(cannyOutput, markedImg, COLOR_GRAY2BGR);
+  Mat markedImgRed = Mat::zeros(cannyOutputRed.size(), CV_32FC1);;
+  Mat markedImgGreen = Mat::zeros(cannyOutputGreen.size(), CV_32FC1);;
 
-  DartAreas dartAreas(markedImg, contours);
+  cv::cvtColor(cannyOutputRed, markedImgRed, COLOR_GRAY2BGR);
+  cv::cvtColor(cannyOutputGreen, markedImgGreen, COLOR_GRAY2BGR);
 
-  markedImg = dartAreas.markAreas(5, Scalar(0, 255, 0), 5);
+  DartAreas dartAreasRed(markedImgRed, contours);
+  DartAreas dartAreasGreen(markedImgGreen, contours);
 
-  win.imgshowResized("Marked img", markedImg);
+  markedImgRed = dartAreasRed.markAreas(5, Scalar(0, 255, 0), 5);
+  markedImgGreen = dartAreasGreen.markAreas(5, Scalar(0, 255, 0), 5);
+
+  win.imgshowResized("Marked img red", markedImgRed);
+  win.imgshowResized("Marked img green", markedImgGreen);
 }
 
 void reset(string windowNameInput)
@@ -438,7 +399,7 @@ int main(int argc, char** argv)
     switch (ch)
     {
     case 'a':
-      automatedColorTest(Default);
+      automatedColorTest(defInputImage, Resources::red_1_default, Resources::red_2_default, Resources::green_default);
       waitKey(0);
       break;
     case 'b':
@@ -447,7 +408,7 @@ int main(int argc, char** argv)
     case 'c':
       {
         result = histogramEqualizationColored(badQualityImage);
-        result = automatedColorTest(HistogramEqualized, result);
+        result = automatedColorTest(result, Resources::red_1_histogram, Resources::red_2_histogram, Resources::green_histogram);
         result = automatedCanny(result);
         
         waitKey(0);
