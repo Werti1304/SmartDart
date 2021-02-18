@@ -16,7 +16,7 @@ int getDistance(cv::Point pt1, cv::Point pt2)
     pow(pt2.y - pt1.y, 2) * 1.0);
 }
 
-DartArea::DartArea(std::vector<cv::Point> inputPoints)
+DartArea::DartArea(std::vector<cv::Point> inputPoints) : contour(inputPoints)
 {
   const int ptCount = inputPoints.size();
 
@@ -67,30 +67,69 @@ void DartArea::markArea(cv::Mat& src, int radius, const cv::Scalar& color, int t
   }
 }
 
-std::list<DartArea> DartArea::defineDartBoard(cv::Mat& src, std::list<DartArea> greenContours, std::list<DartArea> redContours)
+//TODO: Maybe replace with dictionary, unsure yet..
+void checkNeighbour(DartArea& area1, DartArea& area2, const int idxArea1, const int idxArea2, const int maxDistance)
 {
-  // TODO: Implement
-  return std::list<DartArea>();
-
-  for(DartArea redArea : redContours)
+  // Firstly looks for near point, secondly looks that second point of found area is not too near
+  if (getDistance(area1.significantPoints[idxArea1], area2.significantPoints[idxArea2]) < maxDistance 
+    && getDistance(area1.significantPoints[idxArea1], area2.significantPoints[!idxArea2]) > maxDistance)
   {
-    for(cv::Point significantPointRed : redArea.significantPoints)
-    {
-      int maxDistance = getDistance(significantPointRed, redArea.meanPoint);
+    area1.connectAreas[idxArea1] = &area2;
+    area2.connectAreas[idxArea2] = &area1;
+  }
+}
 
-      for(DartArea greenContour : greenContours)
-      {
-        for (cv::Point significantPointGreen : redArea.significantPoints)
-        {
-          if(getDistance(significantPointGreen, significantPointRed) < maxDistance)
-          {
-            //redArea.connectedAreas.push_back(&greenContour);
-            break;
-          }
-        }
-      }
+bool DartArea::getNeighbours(DartArea& areaCmp, std::list<DartArea>& areaList)
+{
+  const int maxDistance0 = getDistance(areaCmp.significantPoints[0], areaCmp.meanPoint);
+  const int maxDistance1 = getDistance(areaCmp.significantPoints[1], areaCmp.meanPoint);
+
+  for (DartArea& areaIter : areaList)
+  {
+    if(areaCmp.connectAreas[0] == nullptr)
+    {
+      checkNeighbour(areaCmp, areaIter, 0, 0, maxDistance0);
+      checkNeighbour(areaCmp, areaIter, 0, 1, maxDistance0);
     }
-  }  
+    if(areaCmp.connectAreas[1] == nullptr)
+    {
+      checkNeighbour(areaCmp, areaIter, 1, 0, maxDistance1);
+      checkNeighbour(areaCmp, areaIter, 1, 1, maxDistance1);
+    }
+    if(areaCmp.connectAreas[0] != nullptr && areaCmp.connectAreas[1] != nullptr)
+    {
+      // When both neighbours were found
+      return true;
+    }
+  }
+  return false;
+}
+
+std::list<DartArea> DartArea::defineDartBoard(std::list<DartArea> greenContours, std::list<DartArea> redContours)
+{
+  std::list<DartArea> dartBoard;
+
+  for (DartArea& redArea : redContours)
+  {
+    const bool gotBothNeighbours = getNeighbours(redArea, greenContours);
+
+    // Confirms that the red area has neighbours that are not the same
+    if (gotBothNeighbours && redArea.connectAreas[0] != redArea.connectAreas[1])
+    {
+      dartBoard.push_back(redArea);
+    }
+  }
+
+  for (DartArea greenArea : greenContours)
+  {
+    // Confirms that the green area has neighbours that are not the same
+    if (greenArea.connectAreas[0] && greenArea.connectAreas[1] && greenArea.connectAreas[0] != greenArea.connectAreas[1])
+    {
+      dartBoard.push_back(greenArea);
+    }
+  }
+
+  return dartBoard;
 }
 
 void DartArea::markAreas(cv::Mat& src, std::list<DartArea> dartAreas, int radius, const cv::Scalar& color, int thickness)
@@ -102,6 +141,17 @@ void DartArea::markAreas(cv::Mat& src, std::list<DartArea> dartAreas, int radius
   }
 }
 
+std::vector<std::vector<cv::Point>> DartArea::convertToContours(std::list<DartArea> dartAreas)
+{
+  std::vector<std::vector<cv::Point>> result;
+
+  for(DartArea dartArea : dartAreas)
+  {
+    result.push_back(dartArea.contour);
+  }
+
+  return result;
+}
 
 std::list<DartArea> DartArea::calculateAreas(std::vector<std::vector<cv::Point>> contours)
 {

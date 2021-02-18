@@ -336,16 +336,34 @@ void testFunc()
   auto contoursRed = automatedContours(cannyOutputRed, drawingRed);
 
   auto dartAreasGreen = DartArea::calculateAreas(contoursGreen);
-  DartArea::markAreas(drawingGreen, dartAreasGreen, 3, Scalar(0, 255, 0), 3);
+  //DartArea::markAreas(drawingGreen, dartAreasGreen, 3, Scalar(0, 255, 0), 3);
   auto dartAreasRed = DartArea::calculateAreas(contoursRed);
-  DartArea::markAreas(drawingRed, dartAreasRed, 3, Scalar(0, 0, 255), 3);
+  //DartArea::markAreas(drawingRed, dartAreasRed, 3, Scalar(0, 0, 255), 3);
 
   //win.imgshowResized("Contoured red", cannyOutputRed);
   win.imgshowResized("Contoured green", drawingGreen);
   win.imgshowResized("Contoured red", drawingRed);
 
   Mat contouredResult = drawingGreen + drawingRed;
+
+  std::list<DartArea> dartboard = DartArea::defineDartBoard(dartAreasGreen, dartAreasRed);
+  DartArea::markAreas(contouredResult, dartboard, 3, Scalar(0, 0, 255), 3);
+
   win.imgshowResized("Contoured Result", contouredResult);
+
+  Mat finalDartBoardImg = Mat::zeros(cannyOutputRed.size(), CV_8UC3);
+
+  auto contours = DartArea::convertToContours(dartboard);
+  RNG rng(time(0)); // RNG with seed of current time
+
+  for (size_t i = 0; i < contours.size(); i++)
+  {
+    Scalar color = Scalar(rng.uniform(50, 256), rng.uniform(0, 256), rng.uniform(0, 256));
+
+    drawContours(finalDartBoardImg, contours, static_cast<int>(i), color, 2);
+  }
+  win.imgshowResized("Final Dartboard", finalDartBoardImg);
+  imwrite("/home/pi/Desktop/FinalDartboard.jpg", finalDartBoardImg);
 
   //Mat result = cannyOutputRed + cannyOutputGreen;
   //win.imgshowResized("Result", result);
