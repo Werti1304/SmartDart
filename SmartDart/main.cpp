@@ -159,27 +159,8 @@ Mat histogramEqualizationColored(Mat inputImage = defInputImage)
   return result;
 }
 
-Mat erodeImg(Mat image)
+Mat automateErode(Mat inputImage = defInputImage)
 {
-  Mat eroded_image;
-
-  erode(image, eroded_image, Mat());
-
-  Mat result = image - eroded_image;
- 
-  threshold(result, result, 1, 255, THRESH_BINARY);
-
-  //win.imgshowResized("Eroded Result", result);
-
-  return result;
-}
-
-vector<vector<Point>> contours;
-Mat automatedCanny(Mat inputImage = defInputImage, int minAreaParam = 15, int cannyParam = 50)
-{
-  Mat canny_output;
-  vector<Vec4i> hierarchy;
-
   Mat src_gray;
   if(inputImage.channels() > 1)
   {
@@ -190,38 +171,44 @@ Mat automatedCanny(Mat inputImage = defInputImage, int minAreaParam = 15, int ca
     src_gray = inputImage;
   }
 
-  // blur(src_gray, src_gray, Size(3, 3));
+  win.imgshowResized("Denoised img", src_gray);
+
+  Mat eroded_image;
+
+  erode(src_gray, eroded_image, Mat());
+
+  Mat result = src_gray - eroded_image;
+
+  threshold(result, result, 1, 255, THRESH_BINARY);
 
   //Canny(src_gray, canny_output, cannyParam, cannyParam * 2);
 
-  canny_output = erodeImg(src_gray);
+  return result;
+}
 
-  findContours(canny_output, contours, hierarchy, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
+vector<vector<Point>> automatedContours(Mat src, Mat& drawing, int minPerimeter = 100)
+{
+  vector<vector<Point>> contours;
+  vector<Vec4i> hierarchy; // Not needed, because of retrieve-mode (RETR_EXTERNAL)
 
-  Mat drawing = Mat::zeros(canny_output.size(), CV_8UC3);
+  findContours(src, contours, hierarchy, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
   RNG rng(time(0)); // RNG with seed of current time
-  
+
+  drawing = Mat::zeros(src.size(), CV_8UC3);
+  vector<vector<Point>> contoursFiltered;
   for (size_t i = 0; i < contours.size(); i++)
   {
     auto cContour = contours.at(i);
-    if (contourArea(cContour) > minAreaParam)
+    if (arcLength(cContour, true) > minPerimeter)
     {
-      Scalar color = Scalar(rng.uniform(50, 256), rng.uniform(0, 256), rng.uniform(0, 256));
-      Scalar invColor = Scalar::all(255) - color;
-      drawContours(drawing, contours, static_cast<int>(i), color, 2, LINE_8, hierarchy, 0);
+      contoursFiltered.push_back(cContour);
 
-      DartAreas::DartArea dartArea = DartAreas::DartArea(cContour);
-      for (const Point pt : dartArea.corners)
-      {
-        circle(drawing, pt, 3, color, 3);
-      }
+      Scalar color = Scalar(rng.uniform(50, 256), rng.uniform(0, 256), rng.uniform(0, 256));
+      drawContours(drawing, contours, static_cast<int>(i), color, 2, LINE_8, hierarchy, 0);
     }
   }
-  imwrite("/home/pi/Desktop/MarkedContours.png", drawing);
-  //win.imgshowResized("Colored Contours", drawing);
-  //win.imgshowResized("Canny Edge Detection", canny_output);
 
-  return drawing;
+  return contoursFiltered;
 }
 
 #pragma region TestFunctions
@@ -340,14 +327,32 @@ void testFunc()
   Mat eqHistogram = histogramEqualizationColored(input);
   Mat automatedColorRed = automatedColorTest(eqHistogram, Resources::red_1_histogram, Resources::red_2_histogram);
   Mat automatedColorGreen = automatedColorTest(eqHistogram, Resources::green_histogram );
-  Mat cannyOutputRed = automatedCanny(automatedColorRed);
-  Mat cannyOutputGreen = automatedCanny(automatedColorGreen);
+  Mat cannyOutputRed = automateErode(automatedColorRed);
+  Mat cannyOutputGreen = automateErode(automatedColorGreen);
 
-  win.imgshowResized("Contoured red", cannyOutputRed);
-  win.imgshowResized("Contoured green", cannyOutputGreen);
+  Mat drawingGreen;
+  auto contoursGreen = automatedContours(cannyOutputGreen, drawingGreen);
+  Mat drawingRed;
+  auto contoursRed = automatedContours(cannyOutputRed, drawingRed);
 
-  imwrite("/home/pi/Desktop/ContouredRed.jpg", cannyOutputRed);
+  auto dartAreasGreen = DartArea::calculateAreas(contoursGreen);
+  DartArea::markAreas(drawingGreen, dartAreasGreen, 3, Scalar(0, 255, 0), 3);
+  auto dartAreasRed = DartArea::calculateAreas(contoursRed);
+  DartArea::markAreas(drawingRed, dartAreasRed, 3, Scalar(0, 0, 255), 3);
+
+  //win.imgshowResized("Contoured red", cannyOutputRed);
+  win.imgshowResized("Contoured green", drawingGreen);
+  win.imgshowResized("Contoured red", drawingRed);
+
+  Mat contouredResult = drawingGreen + drawingRed;
+  win.imgshowResized("Contoured Result", contouredResult);
+
+  //Mat result = cannyOutputRed + cannyOutputGreen;
+  //win.imgshowResized("Result", result);
+
+  /*imwrite("/home/pi/Desktop/ContouredRed.jpg", cannyOutputRed);
   imwrite("/home/pi/Desktop/ContouredGreen.jpg", cannyOutputGreen);
+  imwrite("/home/pi/Desktop/Contoured.jpg", result);*/
 
   //win.imgshowResized("Eroded red", cannyOutputRed);
   //win.imgshowResized("Eroded green", cannyOutputGreen);
@@ -442,7 +447,7 @@ int main(int argc, char** argv)
       {
         result = histogramEqualizationColored(badQualityImage);
         result = automatedColorTest(result, Resources::red_1_histogram, Resources::red_2_histogram, Resources::green_histogram);
-        result = automatedCanny(result);
+        result = automateErode(result);
         
         waitKey(0);
       }

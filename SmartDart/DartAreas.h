@@ -3,36 +3,18 @@
 #include <opencv2/core/types.hpp>
 #include <list>
 
-class DartAreas
+class DartArea
 {
-  cv::Mat src;
-  std::vector<std::vector<cv::Point>> contours;
-
 public:
-  class DartArea
-  {
-  public:
-    enum Index
-    {
-      TopMost,
-      RightMost,
-      BottomMost,
-      LeftMost
-    };
+  cv::Point meanPoint;
+  cv::Point significantPoints[2];
 
-    cv::Point corners[4];
+  DartArea(std::vector<cv::Point>);
+  void markArea(cv::Mat& src, int radius, const cv::Scalar& color, int thickness);
 
-    DartArea(std::vector<cv::Point>);
-    cv::Mat markArea(int radius, const cv::Scalar& color, int thickness);
-  };
+  DartArea* connectAreas[2];
 
-private:
-  std::list<DartArea> dartAreaList;
-
-  void calculateAreas();
-
-public:
-  DartAreas(cv::Mat& src, std::vector<std::vector<cv::Point>> contours);
-
-  cv::Mat markAreas(int radius, const cv::Scalar& color, int thickness);
+  static std::list<DartArea> calculateAreas(std::vector<std::vector<cv::Point>> contours);
+  static std::list<DartArea> defineDartBoard(cv::Mat& src, std::list<DartArea> greenContours, std::list<DartArea> redContours);
+  static void markAreas(cv::Mat& src, std::list<DartArea> dartAreas, int radius, const cv::Scalar& color, int thickness);
 };
