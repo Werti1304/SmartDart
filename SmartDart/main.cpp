@@ -122,7 +122,7 @@ Mat automatedColorTest(const Mat& inputImage = defInputImage, ColorFiltersT... c
     -1, -1, -1);*/
   //filter2D(finalMask, finalMask, -1, sharpening_kernel);
 
-  Mat result;
+  Mat result = Mat::zeros(inputImage.size(), CV_8UC1);
   bitwise_and(inputImage, inputImage, result, finalMask);
 
   //imwrite("/home/pi/Desktop/FinalMask.jpg", finalMask);
@@ -130,6 +130,7 @@ Mat automatedColorTest(const Mat& inputImage = defInputImage, ColorFiltersT... c
   imshow(windowNameMaskFinal, finalMask);
   imshow(windowNameOutput, result);
 
+  return finalMask;
   return result;
 }
 
@@ -158,18 +159,42 @@ Mat histogramEqualizationColored(Mat inputImage = defInputImage)
   return result;
 }
 
+Mat erodeImg(Mat image)
+{
+  Mat eroded_image;
+
+  erode(image, eroded_image, Mat());
+
+  Mat result = image - eroded_image;
+ 
+  threshold(result, result, 1, 255, THRESH_BINARY);
+
+  //win.imgshowResized("Eroded Result", result);
+
+  return result;
+}
+
 vector<vector<Point>> contours;
 Mat automatedCanny(Mat inputImage = defInputImage, int minAreaParam = 15, int cannyParam = 50)
 {
   Mat canny_output;
-
   vector<Vec4i> hierarchy;
+
   Mat src_gray;
+  if(inputImage.channels() > 1)
+  {
+    cvtColor(inputImage, src_gray, COLOR_BGR2GRAY);
+  }
+  else
+  {
+    src_gray = inputImage;
+  }
 
-  cvtColor(inputImage, src_gray, COLOR_BGR2GRAY);
-  blur(src_gray, src_gray, Size(3, 3));
+  // blur(src_gray, src_gray, Size(3, 3));
 
-  Canny(src_gray, canny_output, cannyParam, cannyParam * 2);
+  //Canny(src_gray, canny_output, cannyParam, cannyParam * 2);
+
+  canny_output = erodeImg(src_gray);
 
   findContours(canny_output, contours, hierarchy, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
 
@@ -182,21 +207,21 @@ Mat automatedCanny(Mat inputImage = defInputImage, int minAreaParam = 15, int ca
     if (contourArea(cContour) > minAreaParam)
     {
       Scalar color = Scalar(rng.uniform(50, 256), rng.uniform(0, 256), rng.uniform(0, 256));
-      Scalar invColor = cv::Scalar::all(255) - color;
+      Scalar invColor = Scalar::all(255) - color;
       drawContours(drawing, contours, static_cast<int>(i), color, 2, LINE_8, hierarchy, 0);
 
       DartAreas::DartArea dartArea = DartAreas::DartArea(cContour);
-      for (const cv::Point pt : dartArea.corners)
+      for (const Point pt : dartArea.corners)
       {
-        cv::circle(drawing, pt, 3, color, 3);
+        circle(drawing, pt, 3, color, 3);
       }
     }
   }
   imwrite("/home/pi/Desktop/MarkedContours.png", drawing);
-  win.imgshowResized("Colored Contours", drawing);
-  win.imgshowResized("Canny Edge Detection", canny_output);
+  //win.imgshowResized("Colored Contours", drawing);
+  //win.imgshowResized("Canny Edge Detection", canny_output);
 
-  return canny_output;
+  return drawing;
 }
 
 #pragma region TestFunctions
@@ -308,7 +333,6 @@ void colorTest(Mat inputImage = defInputImage)
 
 #pragma endregion
 
-
 #define TESTFUNC 0
 void testFunc()
 {
@@ -319,20 +343,29 @@ void testFunc()
   Mat cannyOutputRed = automatedCanny(automatedColorRed);
   Mat cannyOutputGreen = automatedCanny(automatedColorGreen);
 
-  Mat markedImgRed = Mat::zeros(cannyOutputRed.size(), CV_32FC1);;
-  Mat markedImgGreen = Mat::zeros(cannyOutputGreen.size(), CV_32FC1);;
+  win.imgshowResized("Contoured red", cannyOutputRed);
+  win.imgshowResized("Contoured green", cannyOutputGreen);
 
-  cv::cvtColor(cannyOutputRed, markedImgRed, COLOR_GRAY2BGR);
-  cv::cvtColor(cannyOutputGreen, markedImgGreen, COLOR_GRAY2BGR);
+  imwrite("/home/pi/Desktop/ContouredRed.jpg", cannyOutputRed);
+  imwrite("/home/pi/Desktop/ContouredGreen.jpg", cannyOutputGreen);
 
-  DartAreas dartAreasRed(markedImgRed, contours);
-  DartAreas dartAreasGreen(markedImgGreen, contours);
+  //win.imgshowResized("Eroded red", cannyOutputRed);
+  //win.imgshowResized("Eroded green", cannyOutputGreen);
 
-  markedImgRed = dartAreasRed.markAreas(5, Scalar(0, 255, 0), 5);
-  markedImgGreen = dartAreasGreen.markAreas(5, Scalar(0, 255, 0), 5);
+  //Mat markedImgRed = Mat::zeros(cannyOutputRed.size(), CV_32FC1);;
+  //Mat markedImgGreen = Mat::zeros(cannyOutputGreen.size(), CV_32FC1);;
 
-  win.imgshowResized("Marked img red", markedImgRed);
-  win.imgshowResized("Marked img green", markedImgGreen);
+  //cvtColor(cannyOutputRed, markedImgRed, COLOR_GRAY2BGR);
+  //cvtColor(cannyOutputGreen, markedImgGreen, COLOR_GRAY2BGR);
+
+  //DartAreas dartAreasRed(markedImgRed, contours);
+  //DartAreas dartAreasGreen(markedImgGreen, contours);
+
+  //markedImgRed = dartAreasRed.markAreas(5, Scalar(0, 255, 0), 5);
+  //markedImgGreen = dartAreasGreen.markAreas(5, Scalar(0, 255, 0), 5);
+
+  //win.imgshowResized("Marked img red", markedImgRed);
+  //win.imgshowResized("Marked img green", markedImgGreen);
 }
 
 void reset(string windowNameInput)

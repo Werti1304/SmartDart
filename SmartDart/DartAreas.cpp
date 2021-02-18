@@ -47,6 +47,7 @@ DartAreas::DartArea::DartArea(std::vector<cv::Point> inputPoints)
   corners[LeftMost].x = INT16_MAX;
   corners[BottomMost].y = INT16_MAX;
 
+  int values[4]; //help-values for every point
   for(const auto pt : inputPoints)
   {
     if(corners[TopMost].y < pt.y)
@@ -65,7 +66,42 @@ DartAreas::DartArea::DartArea(std::vector<cv::Point> inputPoints)
     {
       corners[BottomMost] = pt;
     }
+
+    //int newValues[4] =
+    //{
+    //pt.x + pt.y,
+    //pt.x + pt.y,
+    //pt.y - pt.x,
+    //pt.x - pt.y
+    //};
+
+    //if(values[TopRight] < pt.x + pt.y)
+    //{
+    //  values[TopRight] = pt.y + pt.x;
+    //  corners[TopRight] = pt;
+    //}
+    //if(values[BottomLeft] > pt.x + pt.y)
+    //{
+    //  values[BottomLeft] = pt.y + pt.x;
+    //  corners[BottomLeft] = pt;
+    //}
+    //if(values[TopLeft] < pt.y - pt.x)
+    //{
+    //  values[TopLeft] = pt.y - pt.x;
+    //  corners[TopLeft] = pt;
+    //}
+    //if (values[BottomRight] > pt.y - pt.x)
+    //{
+    //  values[BottomRight] = pt.y - pt.x;
+    //  corners[BottomRight] = pt;
+    //}
+    
   }
+
+  //corners[TopMost].x = corners[RightMost].x;
+  //corners[RightMost] = corners[TopMost];
+  //corners[BottomMost].x = corners[LeftMost].x;
+  //corners[LeftMost] = corners[BottomMost];
 }
 
 cv::Mat DartAreas::markAreas(int radius, const cv::Scalar& color, int thickness)
