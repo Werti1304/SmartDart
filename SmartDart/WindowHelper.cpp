@@ -1,15 +1,16 @@
 #include "WindowHelper.h"
+#include <string>
 
 WindowHelper::WindowHelper(std::string defaultPath, int windowHeight, int windowWidth) : defaultPath(defaultPath), windowHeight(windowHeight), windowWidth(windowWidth)
 {}
 
-void WindowHelper::namedWindowResized(std::string windowName, int height, int width)
+void WindowHelper::namedWindowResized(std::string windowName, int height, int width) const
 {
   cv::namedWindow(windowName, cv::WINDOW_NORMAL); // WINDOW_NORMAL needed for resizeWindow() func
   cv::resizeWindow(windowName, width, height);
 }
 
-void WindowHelper::namedWindowResized(std::string windowName)
+void WindowHelper::namedWindowResized(std::string windowName) const
 {
   namedWindowResized(windowName, windowHeight, windowWidth);
 }
@@ -22,7 +23,7 @@ void WindowHelper::namedWindowResized(std::string windowName)
 /// <param name="img">image to be displayed. Any dimensions are acceptable.</param>
 /// <param name="height">Height of the window. Defaults to saved height.</param>
 /// <param name="width">Width of the window. Defaults to saved width.</param>
-void WindowHelper::imgshowResized(std::string name, cv::Mat img, int height, int width)
+void WindowHelper::imgshowResized(std::string name, cv::Mat img, int height, int width) const
 {
   // Only checking for the default parameters here
   if (height == -1 || width == -1)

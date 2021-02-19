@@ -1,5 +1,4 @@
 #pragma once
-#include <iostream>
 #include <opencv2/opencv.hpp>
 
 class WindowHelper
@@ -12,10 +11,10 @@ public:
   /// <param name="windowWidth">Preffered window width</param>
   WindowHelper(std::string defaultPath, int windowHeight, int windowWidth);
 
-  void namedWindowResized(std::string windowName, int height, int width);
-  void namedWindowResized(std::string windowName);
+  void namedWindowResized(std::string windowName, int height, int width) const;
+  void namedWindowResized(std::string windowName) const;
 
-  void imgshowResized(std::string name, cv::Mat img, int height = -1, int width = -1);
+  void imgshowResized(std::string name, cv::Mat img, int height = -1, int width = -1) const;
 
   /// <summary>
   /// Reads image relative to defaultPath

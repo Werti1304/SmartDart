@@ -87,6 +87,7 @@
     <IncludePath>/usr/local/include/opencv4</IncludePath>
   </PropertyGroup>
   <ItemGroup>
+    <ClCompile Include="Automation.cpp" />
     <ClCompile Include="DartAreas.cpp" />
     <ClCompile Include="HSVTrackbar.cpp" />
     <ClCompile Include="ImageStacker.cpp" />
@@ -95,6 +96,7 @@
     <ClCompile Include="WindowHelper.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Automation.h" />
     <ClInclude Include="DartAreas.h" />
     <ClInclude Include="HSVTrackbar.h" />
     <ClInclude Include="ImageStacker.h" />

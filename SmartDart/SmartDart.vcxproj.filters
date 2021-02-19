@@ -13,6 +13,9 @@
     <ClCompile Include="DartAreas.cpp">
       <Filter>DartArea</Filter>
     </ClCompile>
+    <ClCompile Include="Automation.cpp">
+      <Filter>DartArea</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="ScalarTrackbar">
@@ -36,5 +39,8 @@
     </ClInclude>
     <ClInclude Include="Types.h" />
     <ClInclude Include="Resources.h" />
+    <ClInclude Include="Automation.h">
+      <Filter>DartArea</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

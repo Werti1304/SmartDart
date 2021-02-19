@@ -4,11 +4,10 @@
 #include <thread>
 #include <climits>
 
+#include "Automation.h"
 #include "DartAreas.h"
-#include "opencv2/photo.hpp"
 #include "WindowHelper.h"
 #include "Resources.h"
-#include "Types.h"
 
 using namespace cv;
 using namespace std;
@@ -19,15 +18,7 @@ using namespace std;
 
 WindowHelper win(RaspiPath, RaspiHeight / 2, RaspiWidth / 2);
 
-string windowNameInput = "Input";
 
-string windowNameMask = "Mask";
-string windowNameOutput = "Output";
-
-Mat defInputImage;
-Mat inputImageHsv;
-int hsvLowValues[3] = { 0, 0, 0 }; // Default values
-int hsvHighValues[3] = { 255, 255, 255 }; // Default values
 
 #pragma region Helper
 template<class T>
@@ -57,11 +48,22 @@ void doListStats(list<T> list)
 }
 #pragma endregion
 
+#pragma region TestFunctions
+
+string windowNameInput = "Input";
+
+string windowNameMask = "Mask";
+string windowNameOutput = "Output";
+
+Mat defInputImage;
+Mat inputImageHsv;
+int hsvLowValues[3] = { 0, 0, 0 }; // Default values
+int hsvHighValues[3] = { 255, 255, 255 }; // Default values
 void onColorFilterChange()
 {
   //// https://alloyui.com/examples/color-picker/hsv.html
-  Scalar min_Color = Scalar(hsvLowValues[0], hsvLowValues[1], hsvLowValues[2]);
-  Scalar max_Color = Scalar(hsvHighValues[0], hsvHighValues[1], hsvHighValues[2]);
+  const Scalar min_Color = Scalar(hsvLowValues[0], hsvLowValues[1], hsvLowValues[2]);
+  const Scalar max_Color = Scalar(hsvHighValues[0], hsvHighValues[1], hsvHighValues[2]);
 
   Mat colorFilteredMask;
   inRange(inputImageHsv, min_Color, max_Color, colorFilteredMask);
@@ -73,123 +75,11 @@ void onColorFilterChange()
   imshow(windowNameOutput, result);
 }
 
-// Helper for param packs
-template <typename... T> struct param_pack {};
-
-template<typename ...ColorFiltersT>
-Mat automatedColorTest(const Mat& inputImage = defInputImage, ColorFiltersT... colorFiltersParam) // ... allows unlimited filters
-{
-  // Assert that all passed params are the right type
-  //static_assert(std::is_same<param_pack<const HSVColorFilter>, param_pack<ColorFiltersT...>>::value, "Arguments must be HSVColorFilter.");
-  HSVColorFilter colorFilters[]{ colorFiltersParam... };
-
-  imshow(windowNameInput, inputImage);
-  
-  cvtColor(inputImage, inputImageHsv, COLOR_BGR2HSV); // Init inputImageHsv
-
-  Mat finalMask = Mat::zeros(inputImageHsv.rows, inputImageHsv.cols, CV_8UC1);
-  for(HSVColorFilter colorFilter : colorFilters)
-  {
-    Mat tmpMask;
-    inRange(inputImageHsv, colorFilter.min_Color, colorFilter.max_Color, tmpMask);
-    bitwise_or(finalMask, tmpMask, finalMask);
-  }
-
-  Mat result = Mat::zeros(inputImage.size(), CV_8UC1);
-  bitwise_and(inputImage, inputImage, result, finalMask);
-
-  return finalMask;
-}
-
-Mat histogramEqualizationColored(const Mat& inputImage = defInputImage)
-{
-  Mat ycrcb;
-
-  cvtColor(inputImage, ycrcb, COLOR_BGR2YCrCb);
-
-  vector<Mat> channels;
-  split(ycrcb, channels);
-
-  equalizeHist(channels[0], channels[0]);
-
-  Mat result;
-  merge(channels, ycrcb);
-
-  cvtColor(ycrcb, result, COLOR_YCrCb2BGR);
-
-  return result;
-}
-
-Mat automateErode(const Mat& src = defInputImage)
-{
-  Mat src_gray;
-  if (src.channels() > 1)
-  {
-    cvtColor(src, src_gray, COLOR_BGR2GRAY);
-  }
-  else
-  {
-    src_gray = src;
-  }
-
-  win.imgshowResized("Denoised img", src_gray);
-
-  Mat eroded_image;
-
-  erode(src_gray, eroded_image, Mat());
-
-  Mat result = src_gray - eroded_image;
-
-  threshold(result, result, 1, 255, THRESH_BINARY);
-
-  return result;
-}
-
-vector<vector<Point>> automatedContours(const Mat& src, bool draw = false, Mat& drawing = Mat(), int minPerimeter = 100)
-{
-  vector<vector<Point>> contours;
-  vector<Vec4i> hierarchy; // Not needed, because of retrieve-mode (RETR_EXTERNAL)
-
-  Mat src_gray;
-  if (src.channels() > 1)
-  {
-    cvtColor(src, src_gray, COLOR_BGR2GRAY);
-  }
-  else
-  {
-    src_gray = src;
-  }
-
-  findContours(src, contours, hierarchy, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
-  RNG rng(time(nullptr)); // RNG with seed of current time
-
-  drawing = Mat::zeros(src.size(), CV_8UC3);
-  vector<vector<Point>> contoursFiltered;
-  for (size_t i = 0; i < contours.size(); i++)
-  {
-    auto cContour = contours.at(i);
-    if (arcLength(cContour, true) > minPerimeter)
-    {
-      contoursFiltered.push_back(cContour);
-
-      Scalar color = Scalar(rng.uniform(50, 256), rng.uniform(0, 256), rng.uniform(0, 256));
-
-      if(draw)
-      {
-        drawContours(drawing, contours, static_cast<int>(i), color, 2, LINE_8, hierarchy, 0);
-      }
-    }
-  }
-  return contoursFiltered;
-}
-
-#pragma region TestFunctions
 Mat src_gray;
 int thresh = 50;
 int minArea = 150;
 string contourWindow = "Contours";
 string cannyWindow = "Canny Edge Detection";
-
 static void CannyTestThreshCallback(int, void*)
 {
   Mat canny_output;
@@ -208,9 +98,9 @@ static void CannyTestThreshCallback(int, void*)
     // Perimeter
     vector<Point_<int>> approx_curve;
     auto currentContour = contours.at(i);
-    auto epsilon = 0.1 * arcLength(currentContour, true);
+    const auto epsilon = 0.1 * arcLength(currentContour, true);
     approxPolyDP(currentContour, approx_curve, epsilon, true);
-    auto perimeter = arcLength(approx_curve, true);
+    const auto perimeter = arcLength(approx_curve, true);
 
     //if (contourArea(contours.at(i)) > minArea)
     if (perimeter > minArea)
@@ -268,7 +158,7 @@ void colorTest(const Mat& inputImage = defInputImage)
 
   for (;;)
   {
-    char ch = waitKey(0);
+    const char ch = waitKey(0);
     if (ch == 'q')
     {
       return;
@@ -295,43 +185,60 @@ void colorTest(const Mat& inputImage = defInputImage)
 #define TESTFUNC 0
 void testFunc()
 {
-  Mat input = defInputImage;
-  Mat eqHistogram = histogramEqualizationColored(input);
-  Mat automatedColorRed = automatedColorTest(eqHistogram, Resources::red_1_histogram, Resources::red_2_histogram);
-  Mat automatedColorGreen = automatedColorTest(eqHistogram, Resources::green_histogram );
-  Mat cannyOutputRed = automateErode(automatedColorRed);
-  Mat cannyOutputGreen = automateErode(automatedColorGreen);
+  enum Images
+  {
+    Source,
+    Histogram,
+    MaskRed,
+    MaskGreen,
+    FilteredRed,
+    FilteredGreen,
+    ErosionRed,
+    ErosionGreen,
+    DrawingRed,
+    DrawingGreen,
+    DrawingResult,
+    DartBoard,
+    END
+  };
 
-  Mat drawingGreen;
-  auto contoursGreen = automatedContours(cannyOutputGreen, drawingGreen);
-  Mat drawingRed;
-  auto contoursRed = automatedContours(cannyOutputRed, drawingRed);
+  Mat image[END];
 
-  auto dartAreasGreen = DartArea::calculateAreas(contoursGreen);
-  auto dartAreasRed = DartArea::calculateAreas(contoursRed);
+  image[Source] = defInputImage;
 
-  win.imgshowResized("Contoured green", drawingGreen);
-  win.imgshowResized("Contoured red", drawingRed);
+  Automation::histogramEqualizationColored(image[Source], image[Histogram]);
 
-  Mat contouredResult = drawingGreen + drawingRed;
+  Automation::colorFilter(image[Histogram], image[MaskRed], image[FilteredRed], Resources::red_1_histogram, Resources::red_2_histogram);
+  Automation::colorFilter(image[Histogram], image[MaskGreen], image[FilteredGreen], Resources::green_histogram );
 
-  std::list<DartArea> dartboard = DartArea::defineDartBoard(dartAreasGreen, dartAreasRed);
-  DartArea::markAreas(contouredResult, dartboard, 3, Scalar(0, 0, 255), 3);
+  Automation::erosion(image[FilteredRed], image[ErosionRed]);
+  Automation::erosion(image[FilteredGreen], image[ErosionGreen]);
 
-  win.imgshowResized("Contoured Result", contouredResult);
+  const auto contoursGreen = Automation::contours(image[ErosionRed], image[DrawingRed], true );
+  const auto contoursRed = Automation::contours(image[ErosionGreen], image[DrawingGreen],true );
 
-  Mat finalDartBoardImg = Mat::zeros(cannyOutputRed.size(), CV_8UC3);
+  const auto dartAreasGreen = DartArea::calculateAreas(contoursGreen);
+  const auto dartAreasRed = DartArea::calculateAreas(contoursRed);
 
-  auto contours = DartArea::convertToContours(dartboard);
+  image[DrawingResult] = image[DrawingRed] + image[DrawingGreen];
+
+  const std::list<DartArea> dartboard = DartArea::defineDartBoard(dartAreasGreen, dartAreasRed);
+  DartArea::markAreas(image[DrawingResult], dartboard, 3, Scalar(0, 0, 255), 3);
+
+  win.imgshowResized("Contoured Result", image[DrawingResult]);
+
+  image[DartBoard] = Mat::zeros(image[Source].size(), CV_8UC3);
+
+  const auto contours = DartArea::convertToContours(dartboard);
   RNG rng(time(0)); // RNG with seed of current time
 
   for (size_t i = 0; i < contours.size(); i++)
   {
     Scalar color = Scalar(rng.uniform(50, 256), rng.uniform(0, 256), rng.uniform(0, 256));
 
-    drawContours(finalDartBoardImg, contours, static_cast<int>(i), color, 2);
+    drawContours(image[DartBoard], contours, static_cast<int>(i), color, 2);
   }
-  win.imgshowResized("Final Dartboard", finalDartBoardImg);
+  win.imgshowResized("Final Dartboard", image[DartBoard]);
 }
 
 void reset(string windowNameInput)
@@ -397,22 +304,22 @@ int main(int argc, char** argv)
     char ch = waitKey(0);
     switch (ch)
     {
-    case 'a':
-      automatedColorTest(defInputImage, Resources::red_1_default, Resources::red_2_default, Resources::green_default);
-      waitKey(0);
-      break;
-    case 'b':
-      colorTest(histogramEqualizationColored());
-      break;
-    case 'c':
-      {
-        result = histogramEqualizationColored(badQualityImage);
-        result = automatedColorTest(result, Resources::red_1_histogram, Resources::red_2_histogram, Resources::green_histogram);
-        result = automateErode(result);
-        
-        waitKey(0);
-      }
-      break;
+    //case 'a':
+    //  Automation::automatedColorTest(defInputImage, Resources::red_1_default, Resources::red_2_default, Resources::green_default);
+    //  waitKey(0);
+    //  break;
+    //case 'b':
+    //  colorTest(Automation::histogramEqualizationColored());
+    //  break;
+    //case 'c':
+    //  {
+    //    result = Automation::histogramEqualizationColored(badQualityImage);
+    //    result = Automation::automatedColorTest(result, Resources::red_1_histogram, Resources::red_2_histogram, Resources::green_histogram);
+    //    result = automateErode(result);
+    //    
+    //    waitKey(0);
+    //  }
+    //  break;
     case 'd':
     {
       cannyTest(hqColorResult);
