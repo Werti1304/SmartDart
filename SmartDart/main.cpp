@@ -6,6 +6,7 @@
 
 #include "Automation.h"
 #include "DartAreas.h"
+#include "ImageStacker.h"
 #include "WindowHelper.h"
 #include "Resources.h"
 
@@ -13,10 +14,10 @@ using namespace cv;
 using namespace std;
 
 #define RaspiWidth 1280
-#define RaspiHeight 720
+#define RaspiHeight 660
 #define RaspiPath "/home/pi/Desktop/"
 
-WindowHelper win(RaspiPath, RaspiHeight / 2, RaspiWidth / 2);
+WindowHelper win(RaspiPath, RaspiHeight, RaspiWidth);
 
 
 
@@ -59,21 +60,6 @@ Mat defInputImage;
 Mat inputImageHsv;
 int hsvLowValues[3] = { 0, 0, 0 }; // Default values
 int hsvHighValues[3] = { 255, 255, 255 }; // Default values
-void onColorFilterChange()
-{
-  //// https://alloyui.com/examples/color-picker/hsv.html
-  const Scalar min_Color = Scalar(hsvLowValues[0], hsvLowValues[1], hsvLowValues[2]);
-  const Scalar max_Color = Scalar(hsvHighValues[0], hsvHighValues[1], hsvHighValues[2]);
-
-  Mat colorFilteredMask;
-  inRange(inputImageHsv, min_Color, max_Color, colorFilteredMask);
-
-  Mat result;
-  bitwise_and(defInputImage, defInputImage, result, colorFilteredMask);
-
-  imshow(windowNameMask, colorFilteredMask);
-  imshow(windowNameOutput, result);
-}
 
 Mat src_gray;
 int thresh = 50;
@@ -135,6 +121,22 @@ void cannyTest(const Mat& inputImage = defInputImage)
   CannyTestThreshCallback(0, 0);
 
   waitKey(0);
+}
+
+void onColorFilterChange()
+{
+  //// https://alloyui.com/examples/color-picker/hsv.html
+  const Scalar min_Color = Scalar(hsvLowValues[0], hsvLowValues[1], hsvLowValues[2]);
+  const Scalar max_Color = Scalar(hsvHighValues[0], hsvHighValues[1], hsvHighValues[2]);
+
+  Mat colorFilteredMask;
+  inRange(inputImageHsv, min_Color, max_Color, colorFilteredMask);
+
+  Mat result;
+  bitwise_and(defInputImage, defInputImage, result, colorFilteredMask);
+
+  imshow(windowNameMask, colorFilteredMask);
+  imshow(windowNameOutput, result);
 }
 
 void colorTest(const Mat& inputImage = defInputImage)
@@ -202,43 +204,104 @@ void testFunc()
     END
   };
 
-  Mat image[END];
+  std::list<Mat> testImages;
 
-  image[Source] = defInputImage;
+  testImages.push_back(win.imreadRel("TestImage.jpg"));
+  testImages.push_back(win.imreadRel("TestImage5.jpg"));
+  testImages.push_back(win.imreadRel("image.jpg"));
+  testImages.push_back(win.imreadRel("image1.jpg"));
+  testImages.push_back(win.imreadRel("image2.jpg"));
+  testImages.push_back(win.imreadRel("image3.jpg"));
+  testImages.push_back(win.imreadRel("image4.jpg"));
+  testImages.push_back(win.imreadRel("image5.jpg"));
 
-  Automation::histogramEqualizationColored(image[Source], image[Histogram]);
-
-  Automation::colorFilter(image[Histogram], image[MaskRed], image[FilteredRed], Resources::red_1_histogram, Resources::red_2_histogram);
-  Automation::colorFilter(image[Histogram], image[MaskGreen], image[FilteredGreen], Resources::green_histogram );
-
-  Automation::erosion(image[FilteredRed], image[ErosionRed]);
-  Automation::erosion(image[FilteredGreen], image[ErosionGreen]);
-
-  const auto contoursGreen = Automation::contours(image[ErosionRed], image[DrawingRed], true );
-  const auto contoursRed = Automation::contours(image[ErosionGreen], image[DrawingGreen],true );
-
-  const auto dartAreasGreen = DartArea::calculateAreas(contoursGreen);
-  const auto dartAreasRed = DartArea::calculateAreas(contoursRed);
-
-  image[DrawingResult] = image[DrawingRed] + image[DrawingGreen];
-
-  const std::list<DartArea> dartboard = DartArea::defineDartBoard(dartAreasGreen, dartAreasRed);
-  DartArea::markAreas(image[DrawingResult], dartboard, 3, Scalar(0, 0, 255), 3);
-
-  win.imgshowResized("Contoured Result", image[DrawingResult]);
-
-  image[DartBoard] = Mat::zeros(image[Source].size(), CV_8UC3);
-
-  const auto contours = DartArea::convertToContours(dartboard);
-  RNG rng(time(0)); // RNG with seed of current time
-
-  for (size_t i = 0; i < contours.size(); i++)
+  for (Mat src : testImages)
   {
-    Scalar color = Scalar(rng.uniform(50, 256), rng.uniform(0, 256), rng.uniform(0, 256));
+    bool useHistogramAsLastResort = false;
 
-    drawContours(image[DartBoard], contours, static_cast<int>(i), color, 2);
+    prepareBoard:
+    Mat image[END];
+
+    win.imgshowResized(windowNameInput, src);
+
+    image[Source] = src;
+
+    if(useHistogramAsLastResort)
+    {
+      Automation::histogramEqualizationColored(image[Source], image[Histogram]);
+    }
+    else
+    {
+      image[Histogram] = image[Source];
+    }
+    
+    Automation::colorFilter(image[Histogram], image[MaskRed], image[FilteredRed], Resources::red_1_histogram, Resources::red_2_histogram);
+    Automation::colorFilter(image[Histogram], image[MaskGreen], image[FilteredGreen], Resources::green_histogram);
+
+    Automation::erosion(image[FilteredRed], image[ErosionRed]);
+    Automation::erosion(image[FilteredGreen], image[ErosionGreen]);
+
+    const auto contoursRed = Automation::contours(image[ErosionRed], image[DrawingRed], true);
+    const auto contoursGreen = Automation::contours(image[ErosionGreen], image[DrawingGreen], true);
+
+    const auto dartAreasGreen = DartArea::calculateAreas(contoursGreen);
+    const auto dartAreasRed = DartArea::calculateAreas(contoursRed);
+
+    image[DrawingResult] = image[DrawingRed] + image[DrawingGreen];
+
+    const std::list<DartArea> dartboard = DartArea::defineDartBoard(dartAreasGreen, dartAreasRed);
+    if(dartboard.size() != 40 && !useHistogramAsLastResort)
+    {
+      std::cout << "Using histograms as last resort!\n";
+      useHistogramAsLastResort = true;
+      goto prepareBoard;
+    }
+
+    DartArea::markAreas(image[DrawingResult], dartboard, 3, Scalar(0, 0, 255), 3);
+
+    image[DartBoard] = Mat::zeros(image[Source].size(), CV_8UC3);
+
+    const auto contours = DartArea::convertToContours(dartboard);
+    RNG rng(time(0)); // RNG with seed of current time
+
+    Scalar green = Scalar(0, 255, 0);
+    Scalar red = Scalar(0, 0, 255);
+    int contoursSize = contours.size();
+    for (size_t i = 0; i < contoursSize; i++)
+    {
+      if(i < contoursSize / 2)
+      {
+        drawContours(image[DartBoard], contours, static_cast<int>(i), red, 2);
+      }
+      else
+      {
+        drawContours(image[DartBoard], contours, static_cast<int>(i), green, 2);
+      }
+    }
+
+    if (useHistogramAsLastResort)
+    {
+      win.imgshowResized("Histogram", image[Histogram]); 
+    }
+
+    win.imgshowResized("Mask Red", image[MaskRed]);
+    win.imgshowResized("Mask Green", image[MaskGreen]);
+
+    win.imgshowResized("Filtered Red", image[FilteredRed]);
+    win.imgshowResized("Filtered Green", image[FilteredGreen]);
+
+    win.imgshowResized("Erosion Red", image[ErosionRed]);
+    win.imgshowResized("Erosion Green", image[ErosionGreen]);
+
+    win.imgshowResized("Drawing Red", image[DrawingRed]);
+    win.imgshowResized("Drawing Green", image[DrawingGreen]);
+
+    win.imgshowResized("Contoured Result", image[DrawingResult]);
+
+    win.imgshowResized("Final Dartboard", image[DartBoard]);
+
+    waitKey(0);
   }
-  win.imgshowResized("Final Dartboard", image[DartBoard]);
 }
 
 void reset(string windowNameInput)
@@ -258,7 +321,7 @@ int main(int argc, char** argv)
   Mat hqContours = win.imreadRel("Contours.jpg");
 
   //defInputImage = imread("/home/pi/Desktop/TestImage5.jpg"); // Init inputImage
-  defInputImage = win.imreadRel("TestImage.jpg"); // Init inputImage
+  defInputImage = badQualityImage; //win.imreadRel("TestImage.jpg"); // Init inputImage
   //defInputImage = imread("/home/pi/Desktop/MaskGreen.jpg"); // Init inputImage
   //VideoCapture cap = VideoCapture(0);
   //cap.set(CAP_PROP_XI_FRAMERATE, 1);
@@ -302,15 +365,18 @@ int main(int argc, char** argv)
     reset(windowNameInput);
 
     char ch = waitKey(0);
+    Mat result;
     switch (ch)
     {
     //case 'a':
     //  Automation::automatedColorTest(defInputImage, Resources::red_1_default, Resources::red_2_default, Resources::green_default);
     //  waitKey(0);
     //  break;
-    //case 'b':
-    //  colorTest(Automation::histogramEqualizationColored());
-    //  break;
+    case 'b':
+
+      Automation::histogramEqualizationColored(defInputImage, defInputImage);
+      colorTest();
+      break;
     //case 'c':
     //  {
     //    result = Automation::histogramEqualizationColored(badQualityImage);
@@ -329,6 +395,7 @@ int main(int argc, char** argv)
       defInputImage = badQualityImage;
       testFunc();
       waitKey(0);
+      break;
     case 'q':
       return 0;
     default: ;

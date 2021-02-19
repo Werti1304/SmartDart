@@ -70,6 +70,11 @@ void DartArea::markArea(cv::Mat& src, int radius, const cv::Scalar& color, int t
 //TODO: Maybe replace with dictionary, unsure yet..
 void checkNeighbour(DartArea& area1, DartArea& area2, const int idxArea1, const int idxArea2, const int maxDistance)
 {
+  if(area1.connectAreas[!idxArea1] == &area2)
+  {
+    return;
+  }
+
   // Firstly looks for near point, secondly looks that second point of found area is not too near
   if (getDistance(area1.significantPoints[idxArea1], area2.significantPoints[idxArea2]) < maxDistance 
     && getDistance(area1.significantPoints[idxArea1], area2.significantPoints[!idxArea2]) > maxDistance)
@@ -129,6 +134,38 @@ std::list<DartArea> DartArea::defineDartBoard(std::list<DartArea> greenContours,
     }
   }
 
+  int d1size = dartBoard.size();
+  if(d1size > 40)
+  {
+    std::list<DartArea> dartBoard2;
+    for(DartArea& area : dartBoard)
+    {
+      bool add = true;
+      for(DartArea* areaPtr : area.connectAreas)
+      {
+       if(areaPtr->connectAreas[0] == nullptr || areaPtr->connectAreas[1] == nullptr)
+       {
+         add = false;
+       }
+      }
+      if(add)
+      {
+        dartBoard2.push_back(area);
+      }
+    }
+
+    int d2size = dartBoard2.size();
+    if(d2size != 40)
+    {
+      std::cout << "Couldn't properly generate darboard, should have 40 but has " << d2size << " areas!" << std::endl;
+    }
+    return dartBoard2;
+  }
+  if(d1size < 40)
+  {
+    std::cout << "Couldn't properly generate darboard, should have 40 but has " << d1size << " areas!" << std::endl;
+  }
+
   return dartBoard;
 }
 
@@ -151,6 +188,11 @@ std::vector<std::vector<cv::Point>> DartArea::convertToContours(std::list<DartAr
   }
 
   return result;
+}
+
+bool DartArea::operator==(const DartArea& d1) const
+{
+  return d1.contour == contour;
 }
 
 std::list<DartArea> DartArea::calculateAreas(std::vector<std::vector<cv::Point>> contours)

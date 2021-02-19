@@ -15,6 +15,8 @@ public:
 
   DartArea* connectAreas[2] = { nullptr };
 
+  bool operator==(const DartArea& d1) const;
+
   static std::list<DartArea> calculateAreas(std::vector<std::vector<cv::Point>> contours);
   static std::list<DartArea> defineDartBoard(std::list<DartArea> greenContours, std::list<DartArea> redContours);
   static void markAreas(cv::Mat& src, std::list<DartArea> dartAreas, int radius, const cv::Scalar& color, int thickness);
