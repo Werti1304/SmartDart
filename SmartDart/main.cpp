@@ -7,17 +7,11 @@
 #include "DartAreas.h"
 #include "opencv2/photo.hpp"
 #include "WindowHelper.h"
-#include "ImageStacker.h"
 #include "Resources.h"
 #include "Types.h"
 
-//#include "ShapeDetect.h"
-
 using namespace cv;
 using namespace std;
-
-/// Most important commands:
-/// imread, imshow, namedWindow, waitKey
 
 #define RaspiWidth 1280
 #define RaspiHeight 720
@@ -90,18 +84,6 @@ Mat automatedColorTest(const Mat& inputImage = defInputImage, ColorFiltersT... c
   HSVColorFilter colorFilters[]{ colorFiltersParam... };
 
   imshow(windowNameInput, inputImage);
-
-  const string windowNameMaskRed1 = "Mask Red 1";
-  const string windowNameMaskRed2 = "Mask Red 2";
-  const string windowNameMaskGreen = "Mask Green";
-  const string windowNameMaskFinal = "Mask Final";
-
-  win.namedWindowResized(windowNameMaskRed1);
-  win.namedWindowResized(windowNameMaskRed2);
-  win.namedWindowResized(windowNameMaskGreen);
-  win.namedWindowResized(windowNameMaskFinal);
-
-  win.namedWindowResized(windowNameOutput);
   
   cvtColor(inputImage, inputImageHsv, COLOR_BGR2HSV); // Init inputImageHsv
 
@@ -113,31 +95,14 @@ Mat automatedColorTest(const Mat& inputImage = defInputImage, ColorFiltersT... c
     bitwise_or(finalMask, tmpMask, finalMask);
   }
 
-  //medianBlur(finalMask, finalMask, 5);
-  //fastNlMeansDenoising(finalMask, finalMask, 10, 7, 21);
- 
-  // Sharpen image
-  /*Mat sharpening_kernel = (Mat_<double>(3, 3) << -1, -1, -1,
-    -1, 9, -1,
-    -1, -1, -1);*/
-  //filter2D(finalMask, finalMask, -1, sharpening_kernel);
-
   Mat result = Mat::zeros(inputImage.size(), CV_8UC1);
   bitwise_and(inputImage, inputImage, result, finalMask);
 
-  //imwrite("/home/pi/Desktop/FinalMask.jpg", finalMask);
-  //imwrite("/home/pi/Desktop/Result.jpg", result);
-  imshow(windowNameMaskFinal, finalMask);
-  imshow(windowNameOutput, result);
-
   return finalMask;
-  return result;
 }
 
-Mat histogramEqualizationColored(Mat inputImage = defInputImage)
+Mat histogramEqualizationColored(const Mat& inputImage = defInputImage)
 {
-  imshow(windowNameInput, inputImage);
-
   Mat ycrcb;
 
   cvtColor(inputImage, ycrcb, COLOR_BGR2YCrCb);
@@ -152,23 +117,19 @@ Mat histogramEqualizationColored(Mat inputImage = defInputImage)
 
   cvtColor(ycrcb, result, COLOR_YCrCb2BGR);
 
-  string outputWindowName = "Equalized Image (Colored)";
-  win.namedWindowResized(outputWindowName);
-  imshow(outputWindowName, result);
-
   return result;
 }
 
-Mat automateErode(Mat inputImage = defInputImage)
+Mat automateErode(const Mat& src = defInputImage)
 {
   Mat src_gray;
-  if(inputImage.channels() > 1)
+  if (src.channels() > 1)
   {
-    cvtColor(inputImage, src_gray, COLOR_BGR2GRAY);
+    cvtColor(src, src_gray, COLOR_BGR2GRAY);
   }
   else
   {
-    src_gray = inputImage;
+    src_gray = src;
   }
 
   win.imgshowResized("Denoised img", src_gray);
@@ -181,18 +142,26 @@ Mat automateErode(Mat inputImage = defInputImage)
 
   threshold(result, result, 1, 255, THRESH_BINARY);
 
-  //Canny(src_gray, canny_output, cannyParam, cannyParam * 2);
-
   return result;
 }
 
-vector<vector<Point>> automatedContours(Mat src, Mat& drawing, int minPerimeter = 100)
+vector<vector<Point>> automatedContours(const Mat& src, bool draw = false, Mat& drawing = Mat(), int minPerimeter = 100)
 {
   vector<vector<Point>> contours;
   vector<Vec4i> hierarchy; // Not needed, because of retrieve-mode (RETR_EXTERNAL)
 
+  Mat src_gray;
+  if (src.channels() > 1)
+  {
+    cvtColor(src, src_gray, COLOR_BGR2GRAY);
+  }
+  else
+  {
+    src_gray = src;
+  }
+
   findContours(src, contours, hierarchy, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
-  RNG rng(time(0)); // RNG with seed of current time
+  RNG rng(time(nullptr)); // RNG with seed of current time
 
   drawing = Mat::zeros(src.size(), CV_8UC3);
   vector<vector<Point>> contoursFiltered;
@@ -204,10 +173,13 @@ vector<vector<Point>> automatedContours(Mat src, Mat& drawing, int minPerimeter 
       contoursFiltered.push_back(cContour);
 
       Scalar color = Scalar(rng.uniform(50, 256), rng.uniform(0, 256), rng.uniform(0, 256));
-      drawContours(drawing, contours, static_cast<int>(i), color, 2, LINE_8, hierarchy, 0);
+
+      if(draw)
+      {
+        drawContours(drawing, contours, static_cast<int>(i), color, 2, LINE_8, hierarchy, 0);
+      }
     }
   }
-
   return contoursFiltered;
 }
 
@@ -246,7 +218,7 @@ static void CannyTestThreshCallback(int, void*)
       cout << perimeter << "\n";
       Scalar color = Scalar(rng.uniform(50, 256), rng.uniform(0, 256), rng.uniform(0, 256));
       
-      drawContours(drawing, contours, (int)i, color, 2, LINE_8, hierarchy, 0);
+      drawContours(drawing, contours, static_cast<int>(i), color, 2, LINE_8, hierarchy, 0);
     }
   }
 
@@ -254,7 +226,7 @@ static void CannyTestThreshCallback(int, void*)
   imshow(cannyWindow, canny_output);
 }
 
-void cannyTest(Mat inputImage = defInputImage)
+void cannyTest(const Mat& inputImage = defInputImage)
 {
   imshow(windowNameInput, inputImage);
 
@@ -275,7 +247,7 @@ void cannyTest(Mat inputImage = defInputImage)
   waitKey(0);
 }
 
-void colorTest(Mat inputImage = defInputImage)
+void colorTest(const Mat& inputImage = defInputImage)
 {
   imshow(windowNameInput, inputImage);
 
@@ -336,11 +308,8 @@ void testFunc()
   auto contoursRed = automatedContours(cannyOutputRed, drawingRed);
 
   auto dartAreasGreen = DartArea::calculateAreas(contoursGreen);
-  //DartArea::markAreas(drawingGreen, dartAreasGreen, 3, Scalar(0, 255, 0), 3);
   auto dartAreasRed = DartArea::calculateAreas(contoursRed);
-  //DartArea::markAreas(drawingRed, dartAreasRed, 3, Scalar(0, 0, 255), 3);
 
-  //win.imgshowResized("Contoured red", cannyOutputRed);
   win.imgshowResized("Contoured green", drawingGreen);
   win.imgshowResized("Contoured red", drawingRed);
 
@@ -363,32 +332,6 @@ void testFunc()
     drawContours(finalDartBoardImg, contours, static_cast<int>(i), color, 2);
   }
   win.imgshowResized("Final Dartboard", finalDartBoardImg);
-  imwrite("/home/pi/Desktop/FinalDartboard.jpg", finalDartBoardImg);
-
-  //Mat result = cannyOutputRed + cannyOutputGreen;
-  //win.imgshowResized("Result", result);
-
-  /*imwrite("/home/pi/Desktop/ContouredRed.jpg", cannyOutputRed);
-  imwrite("/home/pi/Desktop/ContouredGreen.jpg", cannyOutputGreen);
-  imwrite("/home/pi/Desktop/Contoured.jpg", result);*/
-
-  //win.imgshowResized("Eroded red", cannyOutputRed);
-  //win.imgshowResized("Eroded green", cannyOutputGreen);
-
-  //Mat markedImgRed = Mat::zeros(cannyOutputRed.size(), CV_32FC1);;
-  //Mat markedImgGreen = Mat::zeros(cannyOutputGreen.size(), CV_32FC1);;
-
-  //cvtColor(cannyOutputRed, markedImgRed, COLOR_GRAY2BGR);
-  //cvtColor(cannyOutputGreen, markedImgGreen, COLOR_GRAY2BGR);
-
-  //DartAreas dartAreasRed(markedImgRed, contours);
-  //DartAreas dartAreasGreen(markedImgGreen, contours);
-
-  //markedImgRed = dartAreasRed.markAreas(5, Scalar(0, 255, 0), 5);
-  //markedImgGreen = dartAreasGreen.markAreas(5, Scalar(0, 255, 0), 5);
-
-  //win.imgshowResized("Marked img red", markedImgRed);
-  //win.imgshowResized("Marked img green", markedImgGreen);
 }
 
 void reset(string windowNameInput)
