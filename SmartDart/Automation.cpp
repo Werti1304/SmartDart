@@ -94,3 +94,4 @@ std::vector<std::vector<Point>> Automation::contours(const Mat& src, Mat& out, b
   }
   return contoursFiltered;
 }
+

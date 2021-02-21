@@ -24,7 +24,7 @@ namespace Automation
  * \param outFiltered BGR output image
  * \param colorFiltersParam all color filters (are used incrementally)
  */
-template <typename ... ColorFiltersT>
+template <typename ... ColorFiltersT >
 void Automation::colorFilter(const Mat& src, Mat& outMask, Mat& outFiltered, ColorFiltersT... colorFiltersParam)
 {
   // Assert that all passed params are the right type

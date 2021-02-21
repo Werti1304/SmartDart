@@ -1,5 +1,6 @@
 #pragma once
 #include "Types.h"
+#include "WindowHelper.h"
 
 #pragma region Color-Filter
 
@@ -24,5 +25,34 @@ namespace Resources
     90, 255, 130);
 };
 
+#define RaspiWidth 1280
+#define RaspiHeight 660
+#define RaspiPath "/home/pi/Desktop/"
+
+inline WindowHelper _win(RaspiPath, RaspiHeight, RaspiWidth);
+
+inline std::map<int, int> DartAreaMapping
+{
+  {1, 1},
+  {2, 18},
+  {3, 4},
+  {4, 13},
+  {5, 6},
+  {6, 10},
+  {7, 15},
+  {8, 2},
+  {9, 17},
+  {10, 3},
+  {11, 19},
+  {12, 7},
+  {13, 16},
+  {14, 8},
+  {15, 11},
+  {16, 14},
+  {17, 9},
+  {18, 12},
+  {19, 5},
+  {20, 20}
+};
 
 #pragma endregion 

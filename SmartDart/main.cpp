@@ -13,14 +13,6 @@
 using namespace cv;
 using namespace std;
 
-#define RaspiWidth 1280
-#define RaspiHeight 660
-#define RaspiPath "/home/pi/Desktop/"
-
-WindowHelper win(RaspiPath, RaspiHeight, RaspiWidth);
-
-
-
 #pragma region Helper
 template<class T>
 void doListStats(list<T> list)
@@ -106,14 +98,14 @@ void cannyTest(const Mat& inputImage = defInputImage)
 {
   imshow(windowNameInput, inputImage);
 
-  win.namedWindowResized(contourWindow);
-  win.namedWindowResized(cannyWindow);
+  _win.namedWindowResized(contourWindow);
+  _win.namedWindowResized(cannyWindow);
 
   cvtColor(inputImage, src_gray, COLOR_BGR2GRAY);
   blur(src_gray, src_gray, Size(3, 3));
 
   const char* source_window = "Source";
-  win.imgshowResized(source_window, inputImage);
+  _win.imgshowResized(source_window, inputImage);
   const int max_thresh = 255;
   const int maxArea = 500;
   createTrackbar("Canny thresh:", source_window, &thresh, max_thresh, CannyTestThreshCallback);
@@ -146,8 +138,8 @@ void colorTest(const Mat& inputImage = defInputImage)
   cvtColor(inputImage, inputImageHsv, COLOR_BGR2HSV); // Init inputImageHsv
 
   // Create windows in right size
-  win.namedWindowResized(windowNameMask);
-  win.namedWindowResized(windowNameOutput);
+  _win.namedWindowResized(windowNameMask);
+  _win.namedWindowResized(windowNameOutput);
 
   // Create trackbar for low bar of colors
   HSVTrackbar trackbarLow("HSV-Trackbar Low", hsvLowValues);
@@ -200,20 +192,20 @@ void testFunc()
     DrawingRed,
     DrawingGreen,
     DrawingResult,
-    DartBoard,
+    FinalBoard,
     END
   };
 
   std::list<Mat> testImages;
 
-  testImages.push_back(win.imreadRel("TestImage.jpg"));
-  testImages.push_back(win.imreadRel("TestImage5.jpg"));
-  testImages.push_back(win.imreadRel("image.jpg"));
-  testImages.push_back(win.imreadRel("image1.jpg"));
-  testImages.push_back(win.imreadRel("image2.jpg"));
-  testImages.push_back(win.imreadRel("image3.jpg"));
-  testImages.push_back(win.imreadRel("image4.jpg"));
-  testImages.push_back(win.imreadRel("image5.jpg"));
+  //testImages.push_back(_win.imreadRel("TestImage.jpg"));
+  //testImages.push_back(_win.imreadRel("TestImage5.jpg"));
+  //testImages.push_back(_win.imreadRel("image.jpg"));
+  testImages.push_back(_win.imreadRel("image1.jpg"));
+  testImages.push_back(_win.imreadRel("image2.jpg"));
+  testImages.push_back(_win.imreadRel("image3.jpg"));
+  testImages.push_back(_win.imreadRel("image4.jpg"));
+  testImages.push_back(_win.imreadRel("image5.jpg"));
 
   for (Mat src : testImages)
   {
@@ -222,7 +214,7 @@ void testFunc()
     prepareBoard:
     Mat image[END];
 
-    win.imgshowResized(windowNameInput, src);
+    _win.imgshowResized(windowNameInput, src);
 
     image[Source] = src;
 
@@ -243,62 +235,69 @@ void testFunc()
 
     const auto contoursRed = Automation::contours(image[ErosionRed], image[DrawingRed], true);
     const auto contoursGreen = Automation::contours(image[ErosionGreen], image[DrawingGreen], true);
+    image[DrawingResult] = image[DrawingRed] + image[DrawingGreen];
 
     const auto dartAreasGreen = DartArea::calculateAreas(contoursGreen);
     const auto dartAreasRed = DartArea::calculateAreas(contoursRed);
 
-    image[DrawingResult] = image[DrawingRed] + image[DrawingGreen];
-
-    const std::list<DartArea> dartboard = DartArea::defineDartBoard(dartAreasGreen, dartAreasRed);
-    if(dartboard.size() != 40 && !useHistogramAsLastResort)
+    DartBoard dartBoard(dartAreasGreen, dartAreasRed, image[Source]);
+    if(!dartBoard.isReady() && !useHistogramAsLastResort)
     {
       std::cout << "Using histograms as last resort!\n";
       useHistogramAsLastResort = true;
       goto prepareBoard;
     }
 
-    DartArea::markAreas(image[DrawingResult], dartboard, 3, Scalar(0, 0, 255), 3);
+    DartArea::markAreas(image[DrawingResult], dartBoard.doubles, 3, Scalar(0, 0, 255), 3);
+    DartArea::markAreas(image[DrawingResult], dartBoard.tribles, 3, Scalar(0, 0, 255), 3);
 
-    image[DartBoard] = Mat::zeros(image[Source].size(), CV_8UC3);
+    image[FinalBoard] = Mat::zeros(image[Source].size(), CV_8UC3);
 
-    const auto contours = DartArea::convertToContours(dartboard);
+    std::vector<std::vector<cv::Point>> contours;
+
+    for (DartArea dartArea : dartBoard.doubles)
+    {
+      contours.push_back(dartArea.contour);
+    }
+    for (DartArea dartArea : dartBoard.tribles)
+    {
+      contours.push_back(dartArea.contour);
+    }
+
     RNG rng(time(0)); // RNG with seed of current time
 
     Scalar green = Scalar(0, 255, 0);
     Scalar red = Scalar(0, 0, 255);
-    int contoursSize = contours.size();
+    const int contoursSize = contours.size();
     for (size_t i = 0; i < contoursSize; i++)
     {
       if(i < contoursSize / 2)
       {
-        drawContours(image[DartBoard], contours, static_cast<int>(i), red, 2);
+        drawContours(image[FinalBoard], contours, static_cast<int>(i), red, 2);
       }
       else
       {
-        drawContours(image[DartBoard], contours, static_cast<int>(i), green, 2);
+        drawContours(image[FinalBoard], contours, static_cast<int>(i), green, 2);
       }
     }
 
-    if (useHistogramAsLastResort)
-    {
-      win.imgshowResized("Histogram", image[Histogram]); 
-    }
+    _win.imgshowResized("Histogram", image[Histogram]); 
 
-    win.imgshowResized("Mask Red", image[MaskRed]);
-    win.imgshowResized("Mask Green", image[MaskGreen]);
+    _win.imgshowResized("Mask Red", image[MaskRed]);
+    _win.imgshowResized("Mask Green", image[MaskGreen]);
 
-    win.imgshowResized("Filtered Red", image[FilteredRed]);
-    win.imgshowResized("Filtered Green", image[FilteredGreen]);
+    _win.imgshowResized("Filtered Red", image[FilteredRed]);
+    _win.imgshowResized("Filtered Green", image[FilteredGreen]);
 
-    win.imgshowResized("Erosion Red", image[ErosionRed]);
-    win.imgshowResized("Erosion Green", image[ErosionGreen]);
+    _win.imgshowResized("Erosion Red", image[ErosionRed]);
+    _win.imgshowResized("Erosion Green", image[ErosionGreen]);
 
-    win.imgshowResized("Drawing Red", image[DrawingRed]);
-    win.imgshowResized("Drawing Green", image[DrawingGreen]);
+    _win.imgshowResized("Drawing Red", image[DrawingRed]);
+    _win.imgshowResized("Drawing Green", image[DrawingGreen]);
 
-    win.imgshowResized("Contoured Result", image[DrawingResult]);
+    _win.imgshowResized("Contoured Result", image[DrawingResult]);
 
-    win.imgshowResized("Final Dartboard", image[DartBoard]);
+    _win.imgshowResized("Final Dartboard", image[FinalBoard]);
 
     waitKey(0);
   }
@@ -307,7 +306,7 @@ void testFunc()
 void reset(string windowNameInput)
 {
   destroyAllWindows();
-  win.namedWindowResized(windowNameInput);
+  _win.namedWindowResized(windowNameInput);
   imshow(windowNameInput, defInputImage);
 }
 
@@ -315,13 +314,13 @@ int main(int argc, char** argv)
 {
   string homePath = "/home/pi/Desktop/";
 
-  Mat badQualityImage = win.imreadRel("TestImage5.jpg");
-  Mat hqFinalMask = win.imreadRel("FinalMask2.jpg");
-  Mat hqColorResult = win.imreadRel("Result.jpg");
-  Mat hqContours = win.imreadRel("Contours.jpg");
+  Mat badQualityImage = _win.imreadRel("TestImage5.jpg");
+  Mat hqFinalMask = _win.imreadRel("FinalMask2.jpg");
+  Mat hqColorResult = _win.imreadRel("Result.jpg");
+  Mat hqContours = _win.imreadRel("Contours.jpg");
 
   //defInputImage = imread("/home/pi/Desktop/TestImage5.jpg"); // Init inputImage
-  defInputImage = badQualityImage; //win.imreadRel("TestImage.jpg"); // Init inputImage
+  defInputImage = _win.imreadRel("TestImage.jpg"); // Init inputImage
   //defInputImage = imread("/home/pi/Desktop/MaskGreen.jpg"); // Init inputImage
   //VideoCapture cap = VideoCapture(0);
   //cap.set(CAP_PROP_XI_FRAMERATE, 1);
