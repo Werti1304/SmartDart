@@ -351,19 +351,6 @@ DartBoard::DartBoard(std::list<DartArea> greenContours, std::list<DartArea> redC
     return;
   }
 
-  /*int i = 0;
-
-  for(DartArea* area : dartBoardGreen)
-  {
-    tribles[i++] = *area;
-  }
-
-  i = 0;
-  for (DartArea* area : dartBoardRed)
-  {
-    doubles[i++] = *area;
-  }*/
-
   doubles = sortAreas(*dartBoardRed.back());
 
   std::list<DartArea*> innerCandidates;
@@ -377,18 +364,14 @@ DartBoard::DartBoard(std::list<DartArea> greenContours, std::list<DartArea> redC
 
   tribles = sortAreas(*innerCandidates.back());
 
+  // Ab hier
   cv::Mat drawing = cv::Mat::zeros(refImage.size(), CV_8UC3);
   drawAreas(drawing, doubles, "D");
   drawAreas(drawing, tribles, "T");
 
-  //doubles[AREA_20].draw(drawing, 5, cv::Scalar(255, 0, 0));
-  //doubles[AREA_6].draw(drawing, 5, cv::Scalar(0, 255, 0));
-  //doubles[AREA_3].draw(drawing, 5, cv::Scalar(255, 0, 0));
-  //doubles[AREA_11].draw(drawing, 5, cv::Scalar(0, 0, 255));
-
   const auto centerX = (doubles[AREA_11].meanPoint.x + doubles[AREA_6].meanPoint.x) / 2;
   const auto centerY = (doubles[AREA_20].meanPoint.y + doubles[AREA_3].meanPoint.y) / 2;
-  cv::Point centerPoint = cv::Point(centerX, centerY);
+  cv::Point centerPoint(centerX, centerY);
 
   cv::circle(drawing, centerPoint, 5, cv::Scalar(255, 255, 255), 2);
 
@@ -397,7 +380,7 @@ DartBoard::DartBoard(std::list<DartArea> greenContours, std::list<DartArea> redC
   for(DartArea area : greenContours)
   {
     auto distance = getDistance(centerPoint, area.meanPoint);
-    if(nearestGreenDistance > distance)
+    if(distance < nearestGreenDistance)
     {
       nearestGreenDistance = distance;
       nearestGreen = area;

@@ -208,7 +208,7 @@ void testFunc()
   testImages.push_back(_win.imreadRel("image4.jpg"));
   testImages.push_back(_win.imreadRel("image5.jpg"));
 
-  for (Mat src : testImages)
+  for (const Mat src : testImages)
   {
     bool useHistogramAsLastResort = false;
 

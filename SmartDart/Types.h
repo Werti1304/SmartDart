@@ -11,7 +11,7 @@ struct HSVColorFilter
   { }
 };
 
-enum DartAreas // S...simple, D...double, T...trible, OB...outer bullseye, IB...inner bullseye
+enum DartAreas
 {
   AREA_1,
   AREA_18,
