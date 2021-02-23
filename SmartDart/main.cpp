@@ -193,14 +193,15 @@ void testFunc()
     DrawingGreen,
     DrawingResult,
     FinalBoard,
+    FinalBoardOverlay,
     END
   };
 
   std::list<Mat> testImages;
 
-  //testImages.push_back(_win.imreadRel("TestImage.jpg"));
-  //testImages.push_back(_win.imreadRel("TestImage5.jpg"));
-  //testImages.push_back(_win.imreadRel("image.jpg"));
+  testImages.push_back(_win.imreadRel("TestImage.jpg"));
+  testImages.push_back(_win.imreadRel("TestImage5.jpg"));
+  testImages.push_back(_win.imreadRel("image.jpg"));
   testImages.push_back(_win.imreadRel("image1.jpg"));
   testImages.push_back(_win.imreadRel("image2.jpg"));
   testImages.push_back(_win.imreadRel("image3.jpg"));
@@ -248,38 +249,10 @@ void testFunc()
       goto prepareBoard;
     }
 
-    DartArea::markAreas(image[DrawingResult], dartBoard.doubles, 3, Scalar(0, 0, 255), 3);
-    DartArea::markAreas(image[DrawingResult], dartBoard.tribles, 3, Scalar(0, 0, 255), 3);
+    DartArea::markAreas(image[DrawingResult], dartBoard.doubles, 3, cv::Scalar(0, 0, 255), 3);
+    DartArea::markAreas(image[DrawingResult], dartBoard.tribles, 3, cv::Scalar(0, 0, 255), 3);
 
-    image[FinalBoard] = Mat::zeros(image[Source].size(), CV_8UC3);
-
-    std::vector<std::vector<cv::Point>> contours;
-
-    for (DartArea dartArea : dartBoard.doubles)
-    {
-      contours.push_back(dartArea.contour);
-    }
-    for (DartArea dartArea : dartBoard.tribles)
-    {
-      contours.push_back(dartArea.contour);
-    }
-
-    RNG rng(time(0)); // RNG with seed of current time
-
-    Scalar green = Scalar(0, 255, 0);
-    Scalar red = Scalar(0, 0, 255);
-    const int contoursSize = contours.size();
-    for (size_t i = 0; i < contoursSize; i++)
-    {
-      if(i < contoursSize / 2)
-      {
-        drawContours(image[FinalBoard], contours, static_cast<int>(i), red, 2);
-      }
-      else
-      {
-        drawContours(image[FinalBoard], contours, static_cast<int>(i), green, 2);
-      }
-    }
+    dartBoard.drawBoardContours(image[FinalBoard], image[Source].size());
 
     _win.imgshowResized("Histogram", image[Histogram]); 
 
@@ -297,9 +270,15 @@ void testFunc()
 
     _win.imgshowResized("Contoured Result", image[DrawingResult]);
 
-    _win.imgshowResized("Final Dartboard", image[FinalBoard]);
+    image[FinalBoardOverlay] = image[Source] + image[FinalBoard];
 
-    waitKey(0);
+    bool finalShown = true;
+    do
+    {
+      _win.imgshowResized("Final Dartboard", finalShown ? image[FinalBoardOverlay] : image[Source]);
+
+      finalShown = !finalShown;
+    } while(waitKey(0) == 't');
   }
 }
 

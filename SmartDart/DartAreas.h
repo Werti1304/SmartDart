@@ -12,7 +12,7 @@ public:
 
   DartArea(std::vector<cv::Point>);
   DartArea();
-  void markArea(cv::Mat& src, int radius, const cv::Scalar& color, int thickness);
+  void draw(cv::Mat& src, int radius, const cv::Scalar& color, int thickness);
 
   DartArea* connectAreas[2] = { nullptr };
 
@@ -47,17 +47,19 @@ class DartBoard
 {
 public:
   DartBoard(std::list<DartArea> greenContours, std::list<DartArea> redContours, const cv::Mat& refImage);
+  void drawBoardContours(cv::Mat& img, cv::Size sizeReference);
   bool isReady() const;
 
   std::array<DartArea, 20> singles; // TODO In se wörks
   std::array<DartArea, 20> doubles;
   std::array<DartArea, 20> tribles;
-  DartArea innerBullseye; // TODO In se wörks
-  DartArea outerBullseye; // TODO In se wörks
+  DartArea innerBullseye; 
+  DartArea outerBullseye; 
    
 private:
   bool ready = false;
   void checkNeighbour(DartArea& area1, DartArea& area2, int idxArea1, int idxArea2, int maxDistance);
+
   bool getNeighbours(DartArea& areaCmp, std::list<DartArea>& areaList);
   static void filterTheOddOneOut(std::list<DartArea*>& dartBoardRed);
 };

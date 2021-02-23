@@ -67,7 +67,7 @@ DartArea::DartArea(std::vector<cv::Point> inputPoints) : contour(inputPoints)
 DartArea::DartArea()
 = default;
 
-void DartArea::markArea(cv::Mat& src, int radius = 5, const cv::Scalar& color = cv::Scalar(0, 255, 0), int thickness = 5)
+void DartArea::draw(cv::Mat& src, int radius = 5, const cv::Scalar& color = cv::Scalar(0, 255, 0), int thickness = 5)
 {
   circle(src, meanPoint, radius, color, thickness);
   for (const cv::Point pt : significantPoints)
@@ -83,7 +83,7 @@ void DartArea::markAreas(cv::Mat& src, std::array<DartArea, 20> dartAreas, int r
   int i = 0;
   for (DartArea area : dartAreas)
   {
-    area.markArea(src, radius, color, thickness);
+    area.draw(src, radius, color, thickness);
   }
 }
 
@@ -140,6 +140,37 @@ void DartBoard::checkNeighbour(DartArea& area1, DartArea& area2, const int idxAr
   {
     area1.connectAreas[idxArea1] = &area2;
     // area2 connecting removed, because green contours can become wrongly connected with this method
+  }
+}
+
+void DartBoard::drawBoardContours(cv::Mat& img, cv::Size sizeReference)
+{
+  const cv::Scalar green = cv::Scalar(0, 255, 0);
+  const cv::Scalar red = cv::Scalar(0, 0, 255);
+
+  if(img.empty())
+  {
+    img = cv::Mat::zeros(sizeReference, CV_8UC3);
+  }
+
+  // Temporary contours safe
+  std::vector<std::vector<cv::Point>> contoursBuff;
+  for (DartArea dartArea : doubles)
+  {
+    contoursBuff.push_back(dartArea.contour);
+  }
+
+  for (DartArea dartArea : tribles)
+  {
+    contoursBuff.push_back(dartArea.contour);
+  }
+
+  contoursBuff.push_back(outerBullseye.contour);
+  contoursBuff.push_back(innerBullseye.contour);
+
+  for (size_t i = 0; i < contoursBuff.size(); i++)
+  {
+    drawContours(img, contoursBuff, static_cast<int>(i), i % 2 ? red : green, 2);
   }
 }
 
@@ -225,7 +256,6 @@ std::array<DartArea, 20> sortAreas(DartArea highestYArea)
     //sorted[i] = sorted[19];
     //}
     tmp = sorted[i].connectAreas;
-    std::cout << i << ": " << sorted[i].meanPoint.y << " -> " << tmp[0]->meanPoint.y << ", " << tmp[1]->meanPoint.y << std::endl;
   }
   return sorted;
 }
@@ -269,8 +299,6 @@ DartBoard::DartBoard(std::list<DartArea> greenContours, std::list<DartArea> redC
     }
   }
 
-  const cv::Scalar color = cv::Scalar(0, 0, 100);
-  cv::Mat test = refImage.clone();
   for(DartArea* redArea : dartBoardRed)
   {
     // Adds green contours to list if they're not already in it
@@ -349,24 +377,48 @@ DartBoard::DartBoard(std::list<DartArea> greenContours, std::list<DartArea> redC
 
   tribles = sortAreas(*innerCandidates.back());
 
-  //cY = INT16_MAX;
-  //for (DartArea& area : dartBoardRed)
-  //{
-  //  if (area.meanPoint.y < cY && !(std::find(doubles.begin(), doubles.end(), area) != doubles.end()))
-  //  {
-  //    cY = area.meanPoint.y;
-  //    lowestY = area;
-  //  }
-  //}
-
-
-
-  cv::Mat drawing = refImage;
+  cv::Mat drawing = cv::Mat::zeros(refImage.size(), CV_8UC3);
   drawAreas(drawing, doubles, "D");
   drawAreas(drawing, tribles, "T");
-  _win.imgshowResized("Test", drawing);
 
-  cv::waitKey(0);
+  //doubles[AREA_20].draw(drawing, 5, cv::Scalar(255, 0, 0));
+  //doubles[AREA_6].draw(drawing, 5, cv::Scalar(0, 255, 0));
+  //doubles[AREA_3].draw(drawing, 5, cv::Scalar(255, 0, 0));
+  //doubles[AREA_11].draw(drawing, 5, cv::Scalar(0, 0, 255));
+
+  const auto centerX = (doubles[AREA_11].meanPoint.x + doubles[AREA_6].meanPoint.x) / 2;
+  const auto centerY = (doubles[AREA_20].meanPoint.y + doubles[AREA_3].meanPoint.y) / 2;
+  cv::Point centerPoint = cv::Point(centerX, centerY);
+
+  cv::circle(drawing, centerPoint, 5, cv::Scalar(255, 255, 255), 2);
+
+  auto nearestGreenDistance = INT16_MAX;
+  DartArea nearestGreen;
+  for(DartArea area : greenContours)
+  {
+    auto distance = getDistance(centerPoint, area.meanPoint);
+    if(nearestGreenDistance > distance)
+    {
+      nearestGreenDistance = distance;
+      nearestGreen = area;
+    }
+  }
+  outerBullseye = nearestGreen;
+
+  auto nearestRedDistance = INT16_MAX;
+  DartArea nearestRed;
+  for (DartArea area : redContours)
+  {
+    auto distance = getDistance(centerPoint, area.meanPoint);
+    if (nearestRedDistance > distance)
+    {
+      nearestRedDistance = distance;
+      nearestRed = area;
+    }
+  }
+  innerBullseye = nearestRed;
+
+  _win.imgshowResized("Test", drawing);
 
   ready = true;
 }
