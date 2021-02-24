@@ -23,14 +23,14 @@ public:
   DartArea();
   void draw(cv::Mat& src, const cv::Scalar& color = cv::Scalar(0, 255, 0), bool drawPts = false, int radius = 5, int thickness = 5);
 
-  DartArea* connectAreas[2] = { nullptr };
+  DartArea* neighbour[2] = { nullptr };
 
   bool operator==(const DartArea& d1) const;
   bool operator!=(const DartArea& d1) const;
 
   static std::list<DartArea> calculateAreas(std::vector<std::vector<cv::Point>> contours);
-  static void markAreas(::cv::Mat& src, std::array<DartArea, 20>, int radius, const cv::Scalar& color, int thickness);
-  static std::vector<std::vector<cv::Point>> convertToContours(std::array<DartArea, 20> dartAreas);
+  static void markAreas(::cv::Mat& src, std::array<DartArea*, 20>, int radius, const cv::Scalar& color, int thickness);
+  static std::vector<std::vector<cv::Point>> convertToContours(std::array<DartArea*, 20> dartAreas);
 
 private:
 };
@@ -42,9 +42,9 @@ public:
   void drawBoardContours(cv::Mat& img, cv::Size sizeReference);
   bool isReady() const;
 
-  std::array<DartArea, 20> singles; // TODO In se wörks
-  std::array<DartArea, 20> doubles;
-  std::array<DartArea, 20> triples;
+  std::array<DartArea*, 20> singles; // TODO In se wörks
+  std::array<DartArea*, 20> doubles;
+  std::array<DartArea*, 20> triples;
   DartArea innerBullseye; 
   DartArea outerBullseye; 
    
@@ -56,6 +56,10 @@ private:
   void getCorners();
   void getBullseye(std::list<DartArea> greenContours, std::list<DartArea> redContours);
   static void filterTheOddOneOut(std::list<DartArea*>& dartBoardRed);
+
+  // Are only here so we save 'em somewhere
+  std::list<DartArea> greenContours;
+  std::list<DartArea> redContours;
 };
 
 //cv::Point getMaxDistancePoint(std::vector<cv::Point> inputArr, cv::Point input)
