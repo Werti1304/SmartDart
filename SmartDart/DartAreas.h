@@ -46,7 +46,8 @@ public:
   std::array<DartArea*, 20> doubles;
   std::array<DartArea*, 20> triples;
   DartArea innerBullseye; 
-  DartArea outerBullseye; 
+  DartArea outerBullseye;
+  cv::Point innerBullseyeCenter;
    
 private:
   bool ready = false;
