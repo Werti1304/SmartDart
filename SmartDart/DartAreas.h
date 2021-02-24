@@ -10,9 +10,18 @@ public:
   cv::Point significantPoints[2];
   std::vector<cv::Point> contour;
 
+  enum CornerArrangement
+  {
+    Outer1,
+    Outer2,
+    Inner1,
+    Inner2
+  };
+  std::array<cv::Point, 4> corners;
+
   DartArea(std::vector<cv::Point>);
   DartArea();
-  void draw(cv::Mat& src, int radius, const cv::Scalar& color, int thickness);
+  void draw(cv::Mat& src, const cv::Scalar& color = cv::Scalar(0, 255, 0), bool drawPts = false, int radius = 5, int thickness = 5);
 
   DartArea* connectAreas[2] = { nullptr };
 
@@ -26,23 +35,6 @@ public:
 private:
 };
 
-class DartAreaEx : public DartArea
-{
-public:
-  enum CornerArrangement
-  {
-    TopLeft,
-    TopRight,
-    BottomRight,
-    BottomLeft
-  };
-
-  DartAreaEx(DartArea, std::array<cv::Point, 4> corners);
-  DartAreaEx();
-
-  std::array<cv::Point, 4> corners;
-};
-
 class DartBoard
 {
 public:
@@ -52,7 +44,7 @@ public:
 
   std::array<DartArea, 20> singles; // TODO In se wörks
   std::array<DartArea, 20> doubles;
-  std::array<DartArea, 20> tribles;
+  std::array<DartArea, 20> triples;
   DartArea innerBullseye; 
   DartArea outerBullseye; 
    
@@ -61,5 +53,18 @@ private:
   void checkNeighbour(DartArea& area1, DartArea& area2, int idxArea1, int idxArea2, int maxDistance);
 
   bool getNeighbours(DartArea& areaCmp, std::list<DartArea>& areaList);
+  void getCorners();
+  void getBullseye(std::list<DartArea> greenContours, std::list<DartArea> redContours);
   static void filterTheOddOneOut(std::list<DartArea*>& dartBoardRed);
 };
+
+//cv::Point getMaxDistancePoint(std::vector<cv::Point> inputArr, cv::Point input)
+//{
+//  
+//}
+//
+//template <size_t TArrSize>
+//void getMaxDistancePoints(std::vector<cv::Point> inputArr, std::array<cv::Point, TArrSize> input, std::array<cv::Point, TArrSize>& output)
+//{
+//  
+//}

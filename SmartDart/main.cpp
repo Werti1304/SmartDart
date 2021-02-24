@@ -250,7 +250,7 @@ void testFunc()
     }
 
     DartArea::markAreas(image[DrawingResult], dartBoard.doubles, 3, cv::Scalar(0, 0, 255), 3);
-    DartArea::markAreas(image[DrawingResult], dartBoard.tribles, 3, cv::Scalar(0, 0, 255), 3);
+    DartArea::markAreas(image[DrawingResult], dartBoard.triples, 3, cv::Scalar(0, 0, 255), 3);
 
     dartBoard.drawBoardContours(image[FinalBoard], image[Source].size());
 

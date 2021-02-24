@@ -67,23 +67,30 @@ DartArea::DartArea(std::vector<cv::Point> inputPoints) : contour(inputPoints)
 DartArea::DartArea()
 = default;
 
-void DartArea::draw(cv::Mat& src, int radius = 5, const cv::Scalar& color = cv::Scalar(0, 255, 0), int thickness = 5)
+void DartArea::draw(cv::Mat& src, const cv::Scalar& color, bool drawPts, int radius, int thickness)
 {
-  circle(src, meanPoint, radius, color, thickness);
-  for (const cv::Point pt : significantPoints)
+  if(drawPts)
   {
-    circle(src, pt, radius, color, thickness);
+    circle(src, meanPoint, radius, color, thickness);
+    for (const cv::Point pt : significantPoints)
+    {
+      circle(src, pt, radius, color, thickness);
+    }
   }
+
+  std::vector<std::vector<cv::Point> > contourVec;
+  contourVec.push_back(contour);
+  cv::drawContours(src, contourVec, 0, color, 3); //Replace i with 0 for index. 
 }
 
 //TODO: Maybe replace with dictionary, unsure yet..
-
+// TODO Refactor drawing stuff of dartareas (bit chaotic and unlogical)
 void DartArea::markAreas(cv::Mat& src, std::array<DartArea, 20> dartAreas, int radius = 5, const cv::Scalar& color = cv::Scalar(0, 255, 0), int thickness = 5)
 {
   int i = 0;
   for (DartArea area : dartAreas)
   {
-    area.draw(src, radius, color, thickness);
+    area.draw(src, color, true, radius, thickness);
   }
 }
 
@@ -98,13 +105,6 @@ std::vector<std::vector<cv::Point>> DartArea::convertToContours(std::array<DartA
 
   return result;
 }
-
-DartAreaEx::DartAreaEx(DartArea dartArea, std::array<cv::Point, 4> corners) : DartArea(dartArea), corners(corners)
-{
-}
-
-DartAreaEx::DartAreaEx()
-= default;
 
 bool DartArea::operator==(const DartArea& d1) const
 {
@@ -160,13 +160,16 @@ void DartBoard::drawBoardContours(cv::Mat& img, cv::Size sizeReference)
     contoursBuff.push_back(dartArea.contour);
   }
 
-  for (DartArea dartArea : tribles)
+  for (DartArea dartArea : triples)
   {
     contoursBuff.push_back(dartArea.contour);
   }
 
-  contoursBuff.push_back(outerBullseye.contour);
-  contoursBuff.push_back(innerBullseye.contour);
+  if(!outerBullseye.contour.empty() && !innerBullseye.contour.empty())
+  {
+    contoursBuff.push_back(outerBullseye.contour);
+    contoursBuff.push_back(innerBullseye.contour);
+  }
 
   for (size_t i = 0; i < contoursBuff.size(); i++)
   {
@@ -273,14 +276,154 @@ void drawAreas(cv::Mat& img, std::array<DartArea, 20> areas, const std::string p
   }
 }
 
-std::array<DartAreaEx, 20> ascentAreas(std::array<DartArea, 20> sortedAreas)
+void DartBoard::getCorners()
 {
-  std::array<DartAreaEx, 20> sortedAreasEx;
-
   for(int i = 0; i < 20; i++)
   {
-    // TODO Do... something here... not something stupid!.. but something..
+    DartArea& tripleArea = triples[i];
+    DartArea& doubleArea = doubles[i];
+
+    cv::Point ptTmp1;
+    cv::Point ptTmp2;
+
+    const cv::Point centerPoint = (tripleArea.meanPoint + doubleArea.meanPoint) / 2;
+
+    auto maxDistanceSig0 = getDistance(tripleArea.significantPoints[0], tripleArea.meanPoint);
+    auto maxDistanceSig1 = getDistance(tripleArea.significantPoints[1], tripleArea.meanPoint);
+    auto maxDist1 = 0;
+    auto maxDist2 = 0;
+
+    // Gets points that are furthest away from centerPoint on both sides (both have to be in a radius opposite to each other)
+    for (const auto pt : tripleArea.contour)
+    {
+      auto distTmp = getDistance(pt, centerPoint);
+      if (getDistance(pt, tripleArea.significantPoints[0]) < maxDistanceSig0 && maxDist1 < distTmp)
+      {
+        maxDist1 = distTmp;
+        ptTmp1 = pt;
+      }
+      distTmp = getDistance(pt, centerPoint);
+      if (getDistance(pt, tripleArea.significantPoints[1]) < maxDistanceSig1 && maxDist2 < distTmp)
+      {
+        maxDist2 = distTmp;
+        ptTmp2 = pt;
+      }
+    }
+    tripleArea.corners[DartArea::Outer1] = ptTmp1;
+    tripleArea.corners[DartArea::Outer2] = ptTmp2;
+
+    // Gets points which are furthest away from Outer1 and Outer2 of the triples
+    maxDist1 = 0;
+    maxDist2 = 0;
+    for (const auto pt : doubleArea.contour)
+    {
+      auto distTmp = getDistance(pt, tripleArea.corners[DartArea::Outer1]);
+      if (distTmp > maxDist1)
+      {
+        maxDist1 = distTmp;
+        ptTmp1 = pt;
+      }
+      distTmp = getDistance(pt, tripleArea.corners[DartArea::Outer2]);
+      if (distTmp > maxDist2)
+      {
+        maxDist2 = distTmp;
+        ptTmp2 = pt;
+      }
+    }
+    doubleArea.corners[DartArea::Outer1] = ptTmp1;
+    doubleArea.corners[DartArea::Outer2] = ptTmp2;
+
+    // Gets points which are furthest away from Outer1 and Outer2
+    maxDist1 = 0;
+    maxDist2 = 0;
+    for (const auto pt : tripleArea.contour)
+    {
+      auto distTmp = getDistance(pt, tripleArea.corners[DartArea::Outer1]);
+      if (distTmp > maxDist1)
+      {
+        maxDist1 = distTmp;
+        ptTmp1 = pt;
+      }
+      distTmp = getDistance(pt, tripleArea.corners[DartArea::Outer2]);
+      if (distTmp > maxDist2)
+      {
+        maxDist2 = distTmp;
+        ptTmp2 = pt;
+      }
+    }
+    // Reversed order because Inner1 and Outer1 should be on the same side, but the algorithm alway gets the diagonally furthest away
+    tripleArea.corners[DartArea::Inner2] = ptTmp1;
+    tripleArea.corners[DartArea::Inner1] = ptTmp2;
+
+    // Gets points which are furthest away from the outerPoint (mean of both other corners)
+    // & are further away than minDistance from corners
+    // & are within a radius of the corners (so that 2 points are achieved, not just 2 next to each other)
+    const int minDistance = (getDistance(tripleArea.corners[DartArea::Inner1], tripleArea.corners[DartArea::Outer1]) 
+      + getDistance(tripleArea.corners[DartArea::Inner2], tripleArea.corners[DartArea::Outer2])) / 6;
+    maxDistanceSig0 = getDistance(doubleArea.significantPoints[0], doubleArea.meanPoint);
+    maxDistanceSig1 = getDistance(doubleArea.significantPoints[1], doubleArea.meanPoint);
+    const cv::Point outerPoint = (doubleArea.corners[DartArea::Outer1] + doubleArea.corners[DartArea::Outer2]) / 2;
+    maxDist1 = 0;
+    maxDist2 = 0;
+    for (const auto pt : doubleArea.contour)
+    {
+      const auto minDistTmp = getDistance(pt, doubleArea.corners[DartArea::Outer1]);
+      const auto minDistTmp2 = getDistance(pt, doubleArea.corners[DartArea::Outer2]);
+      if (minDistTmp > minDistance && minDistTmp2 > minDistance)
+      {
+        auto distTmp = getDistance(pt, outerPoint);
+        if (getDistance(pt, doubleArea.significantPoints[0]) < maxDistanceSig0 && distTmp > maxDist1)
+        {
+          maxDist1 = distTmp;
+          ptTmp1 = pt;
+        }
+        distTmp = getDistance(pt, outerPoint);
+        if (getDistance(pt, doubleArea.significantPoints[1]) < maxDistanceSig1 && distTmp > maxDist2)
+        {
+          maxDist2 = distTmp;
+          ptTmp2 = pt;
+        }
+      }
+    }
+    // Reversed order because Inner1 and Outer1 should be on the same side, but the algorithm alway gets the diagonally furthest away
+    doubleArea.corners[DartArea::Inner2] = ptTmp1;
+    doubleArea.corners[DartArea::Inner1] = ptTmp2;
   }
+}
+
+void DartBoard::getBullseye(std::list<DartArea> greenContours, std::list<DartArea> redContours)
+{
+  const auto centerX = (doubles[AREA_11].meanPoint.x + doubles[AREA_6].meanPoint.x) / 2;
+  const auto centerY = (doubles[AREA_20].meanPoint.y + doubles[AREA_3].meanPoint.y) / 2;
+  const cv::Point centerPoint(centerX, centerY);
+
+  auto nearestGreenDistance = INT16_MAX;
+  DartArea nearestGreen;
+  for(const DartArea area : greenContours)
+  {
+    const auto distance = getDistance(centerPoint, area.meanPoint);
+    if(distance < nearestGreenDistance)
+    {
+      nearestGreenDistance = distance;
+      nearestGreen = area;
+    }
+  }
+  outerBullseye = nearestGreen;
+
+  auto nearestRedDistance = INT16_MAX;
+  DartArea nearestRed;
+  for (const DartArea area : redContours)
+  {
+    const auto distance = getDistance(centerPoint, area.meanPoint);
+    if (nearestRedDistance > distance)
+    {
+      nearestRedDistance = distance;
+      nearestRed = area;
+    }
+  }
+  innerBullseye = nearestRed;
+
+  // If triples are detected as bullseyes, a simple check could be build in here
 }
 
 DartBoard::DartBoard(std::list<DartArea> greenContours, std::list<DartArea> redContours, const cv::Mat& refImage)
@@ -362,44 +505,36 @@ DartBoard::DartBoard(std::list<DartArea> greenContours, std::list<DartArea> redC
     }
   }
 
-  tribles = sortAreas(*innerCandidates.back());
+  triples = sortAreas(*innerCandidates.back());
 
   // Ab hier
-  cv::Mat drawing = cv::Mat::zeros(refImage.size(), CV_8UC3);
-  drawAreas(drawing, doubles, "D");
-  drawAreas(drawing, tribles, "T");
+  cv::Mat drawing = refImage.clone(); /*cv::Mat::zeros(refImage.size(), CV_8UC3);*/
+  //drawAreas(drawing, doubles, "D");
+  //drawAreas(drawing, triples, "T");
 
-  const auto centerX = (doubles[AREA_11].meanPoint.x + doubles[AREA_6].meanPoint.x) / 2;
-  const auto centerY = (doubles[AREA_20].meanPoint.y + doubles[AREA_3].meanPoint.y) / 2;
-  cv::Point centerPoint(centerX, centerY);
+  getBullseye(greenContours, redContours);
 
-  cv::circle(drawing, centerPoint, 5, cv::Scalar(255, 255, 255), 2);
+  getCorners();
 
-  auto nearestGreenDistance = INT16_MAX;
-  DartArea nearestGreen;
-  for(DartArea area : greenContours)
+  for(int i = 0; i < 20; i++)
   {
-    auto distance = getDistance(centerPoint, area.meanPoint);
-    if(distance < nearestGreenDistance)
+    for(cv::Point point : triples[i].corners)
     {
-      nearestGreenDistance = distance;
-      nearestGreen = area;
+      cv::circle(drawing, point, 2, cv::Scalar(255, 255, 255), 2);
+    }
+    for (cv::Point point : doubles[i].corners)
+    {
+      cv::circle(drawing, point, 2, cv::Scalar(255, 255, 255), 2);
     }
   }
-  outerBullseye = nearestGreen;
 
-  auto nearestRedDistance = INT16_MAX;
-  DartArea nearestRed;
-  for (DartArea area : redContours)
+  for (DartArea area : triples)
   {
-    auto distance = getDistance(centerPoint, area.meanPoint);
-    if (nearestRedDistance > distance)
+    for (cv::Point point : area.corners)
     {
-      nearestRedDistance = distance;
-      nearestRed = area;
+      cv::circle(drawing, point, 5, cv::Scalar(255, 255, 255));
     }
   }
-  innerBullseye = nearestRed;
 
   _win.imgshowResized("Test", drawing);
 
