@@ -16,6 +16,12 @@
     <ClCompile Include="Automation.cpp">
       <Filter>DartArea</Filter>
     </ClCompile>
+    <ClCompile Include="Dartboard.cpp">
+      <Filter>DartArea</Filter>
+    </ClCompile>
+    <ClCompile Include="PointHelper.cpp">
+      <Filter>DartArea</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="ScalarTrackbar">
@@ -40,6 +46,12 @@
     <ClInclude Include="Types.h" />
     <ClInclude Include="Resources.h" />
     <ClInclude Include="Automation.h">
+      <Filter>DartArea</Filter>
+    </ClInclude>
+    <ClInclude Include="PointHelper.h">
+      <Filter>DartArea</Filter>
+    </ClInclude>
+    <ClInclude Include="DartBoard.h">
       <Filter>DartArea</Filter>
     </ClInclude>
   </ItemGroup>
