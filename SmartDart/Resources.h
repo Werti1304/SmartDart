@@ -31,6 +31,11 @@ namespace Resources
 
 inline WindowHelper _win(RaspiPath, RaspiHeight, RaspiWidth);
 
+const cv::Scalar _redColor{ 0, 0, 255 };
+const cv::Scalar _greenColor{ 0, 255, 0 };
+const cv::Scalar _blueColor{ 255, 0, 0 };
+const cv::Scalar _whiteColor{ 255, 255, 255 };
+
 inline std::map<int, int> DartAreaMapping
 {
   {1, 1},

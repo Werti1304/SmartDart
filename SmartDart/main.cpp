@@ -176,6 +176,233 @@ void colorTest(const Mat& inputImage = defInputImage)
 
 #pragma endregion
 
+DartBoard* _dartboard;
+
+void mouseCallBack(int event, int x, int y, int flags, void* userdata)
+{
+  if (event == EVENT_LBUTTONDOWN)
+  {
+    cout << "Left button of the mouse is clicked - position (" << x << ", " << y << ")" << endl;
+  }
+}
+
+void drawDartBoardProgressLine(DartBoard dartBoard, const Mat& source, const Mat& contours)
+{
+  _dartboard = &dartBoard;
+
+  enum Images
+  {
+    Source,
+    Contours,
+    DartAreaSigPoints,
+    DartBoardNeighbour,
+    DartBoardSigPoints,
+    DartBoardSigDoubleTriples,
+    DartBoardSigBullseye,
+    DartBoardCon,
+    DartBoardCorners,
+    DartBoardSortedMeanCorners,
+    DartBoardDrawn,
+    DartBoardDrawn2,
+    END
+  };
+    
+  std::array<Mat, END> images = {
+    source.clone(),
+    contours.clone(),
+    Mat::zeros(source.size(),CV_8UC3),
+    Mat::zeros(source.size(),CV_8UC3),
+    Mat::zeros(source.size(),CV_8UC3),
+    Mat::zeros(source.size(),CV_8UC3),
+    Mat::zeros(source.size(),CV_8UC3),
+    Mat::zeros(source.size(),CV_8UC3),
+    Mat::zeros(source.size(),CV_8UC3),
+    Mat::zeros(source.size(),CV_8UC3),
+    Mat::zeros(source.size(),CV_8UC3),
+    Mat::zeros(source.size(),CV_8UC3) };
+
+  // DartAreaSigPoints
+  for (auto area : dartBoard.greenContours)
+  {
+    circle(images[DartAreaSigPoints], area.meanPoint, 3, _greenColor, 3);
+    for (auto pt : area.significantPoints)
+    {
+      circle(images[DartAreaSigPoints], pt, 3, _greenColor, 3);
+    }
+  }
+  for (auto area : dartBoard.redContours)
+  {
+    circle(images[DartAreaSigPoints], area.meanPoint, 3, _redColor, 3);
+    for (auto pt : area.significantPoints)
+    {
+      circle(images[DartAreaSigPoints], pt, 3, _redColor, 3);
+    }
+  }
+
+  // DartBoardNeighbour
+  circle(images[DartBoardNeighbour], dartBoard.doubles[AREA_20]->meanPoint, 3, _redColor, 3);
+  for (auto pt : dartBoard.doubles[AREA_20]->significantPoints)
+  {
+    circle(images[DartBoardNeighbour], pt, 3, _redColor, 3);
+  }
+  for(DartArea* neighbour : dartBoard.doubles[AREA_20]->neighbours)
+  {
+    circle(images[DartBoardNeighbour], neighbour->meanPoint, 3, _greenColor, 3);
+    for (auto pt : neighbour->significantPoints)
+    {
+      circle(images[DartBoardNeighbour], pt, 3, _greenColor, 3);
+    }
+  }
+
+  // DartBoardSigPoints
+  for (auto i = 0; i < 20; i++)
+  {
+    circle(images[DartBoardSigPoints], dartBoard.doubles[i]->meanPoint, 3, i % 2 ? _redColor : _greenColor, 3);
+    for (auto pt : dartBoard.doubles[i]->significantPoints)
+    {
+      circle(images[DartBoardSigPoints], pt, 3, i % 2 ? _redColor : _greenColor, 3);
+    }
+    circle(images[DartBoardSigPoints], dartBoard.triples[i]->meanPoint, 3, i % 2 ? _redColor : _greenColor, 3);
+    for (auto pt : dartBoard.triples[i]->significantPoints)
+    {
+      circle(images[DartBoardSigPoints], pt, 3, i % 2 ? _redColor : _greenColor, 3);
+    }
+  }
+
+  // DartBoardSigDoubleTriples
+  for (auto i = 0; i < 20; i++)
+  {
+    //circle(images[DartBoardSigDouble], dartBoard.doubles[i]->meanPoint, 3, i % 2 ? _redColor : _greenColor, 3);
+    DartBoard::printText(images[DartBoardSigDoubleTriples], dartBoard.doubles, "D", 1, 2, _greenColor);
+    for (auto pt : dartBoard.doubles[i]->significantPoints)
+    {
+      circle(images[DartBoardSigDoubleTriples], pt, 3, i % 2 ? _redColor : _greenColor, 3);
+    }
+  }
+  for (auto i = 0; i < 20; i++)
+  {
+    //circle(images[DartBoardSigDouble], dartBoard.doubles[i]->meanPoint, 3, i % 2 ? _redColor : _greenColor, 3);
+    DartBoard::printText(images[DartBoardSigDoubleTriples], dartBoard.triples, "T", 1, 2, _greenColor);
+    for (auto pt : dartBoard.triples[i]->significantPoints)
+    {
+      circle(images[DartBoardSigDoubleTriples], pt, 3, i % 2 ? _redColor : _greenColor, 3);
+    }
+  }
+
+  // DartBoardSigBullseye
+  circle(images[DartBoardSigBullseye], dartBoard.innerBullseye.meanPoint, 3, _redColor, 3);
+  circle(images[DartBoardSigBullseye], dartBoard.innerBullseye.significantPoints[0], 3, _redColor, 3);
+  circle(images[DartBoardSigBullseye], dartBoard.innerBullseye.significantPoints[1], 3, _redColor, 3);
+  circle(images[DartBoardSigBullseye], dartBoard.outerBullseye.meanPoint, 3, _greenColor, 3);
+  circle(images[DartBoardSigBullseye], dartBoard.outerBullseye.significantPoints[0], 3, _greenColor, 3);
+  circle(images[DartBoardSigBullseye], dartBoard.outerBullseye.significantPoints[1], 3, _greenColor, 3);
+
+  // DartBoardCon
+  dartBoard.drawBoard(images[DartBoardCon], source.size());
+  circle(images[DartBoardCon], dartBoard.outerBullseyeCenter, 5, _whiteColor, 5);
+
+  // DartBoardCorners
+  for (auto i = 0; i < 20; i++)
+  {
+    for (cv::Point point : dartBoard.triples[i]->corners)
+    {
+      cv::circle(images[DartBoardCorners], point, 2, cv::Scalar(255, 255, 255), 2);
+    }
+    for (cv::Point point : dartBoard.doubles[i]->corners)
+    {
+      cv::circle(images[DartBoardCorners], point, 2, cv::Scalar(255, 255, 255), 2);
+    }
+  }
+
+  // DartBoardSortedMeanCorners
+  for (auto i = 0; i < 10; i++)
+  {
+    //Reds contain meanCorners info, so we'll only iterate through them
+    DartArea* dartArea = dartBoard.doubles[i * 2];
+
+    cv::circle(images[DartBoardSortedMeanCorners], dartArea->meanCorners[DartArea::Outer1], 5, _redColor, 5);
+    cv::circle(images[DartBoardSortedMeanCorners], dartArea->meanCorners[DartArea::Outer2], 5, _greenColor, 5);
+    cv::circle(images[DartBoardSortedMeanCorners], dartArea->meanCorners[DartArea::Inner1], 5, _whiteColor, 5);
+    cv::circle(images[DartBoardSortedMeanCorners], dartArea->meanCorners[DartArea::Inner2], 5, _blueColor, 5);
+
+    dartArea = dartBoard.triples[i * 2];
+
+    cv::circle(images[DartBoardSortedMeanCorners], dartArea->meanCorners[DartArea::Outer1], 5, _redColor, 5);
+    cv::circle(images[DartBoardSortedMeanCorners], dartArea->meanCorners[DartArea::Outer2], 5, _greenColor, 5);
+    cv::circle(images[DartBoardSortedMeanCorners], dartArea->meanCorners[DartArea::Inner1], 5, _whiteColor, 5);
+    cv::circle(images[DartBoardSortedMeanCorners], dartArea->meanCorners[DartArea::Inner2], 5, _blueColor, 5);
+  }
+
+  // DartBoardDrawn
+  for(int i = 0; i < 10; i++)
+  {
+    DartArea* dartAreaDouble = dartBoard.doubles[i * 2];
+    
+    DartArea* clockwiseNeighbour;
+    // If last element, the neighbour is the first
+    clockwiseNeighbour = dartBoard.doubles[(i == 9 ? 0 : i * 2 + 2)];
+
+    cv::line(images[DartBoardDrawn], dartAreaDouble->meanCorners[DartArea::Outer1], dartAreaDouble->meanCorners[DartArea::Outer2], _redColor);
+    cv::line(images[DartBoardDrawn], dartAreaDouble->meanCorners[DartArea::Outer1], dartAreaDouble->meanCorners[DartArea::Inner1], _redColor);
+    cv::line(images[DartBoardDrawn], dartAreaDouble->meanCorners[DartArea::Outer2], dartAreaDouble->meanCorners[DartArea::Inner2], _redColor);
+    cv::line(images[DartBoardDrawn], dartAreaDouble->meanCorners[DartArea::Inner1], dartAreaDouble->meanCorners[DartArea::Inner2], _redColor);
+
+    cv::line(images[DartBoardDrawn], dartAreaDouble->meanCorners[DartArea::Outer1], clockwiseNeighbour->meanCorners[DartArea::Outer2], _greenColor);
+    cv::line(images[DartBoardDrawn], dartAreaDouble->meanCorners[DartArea::Inner1], clockwiseNeighbour->meanCorners[DartArea::Inner2], _greenColor);
+
+    DartArea* dartAreaTriple = dartBoard.triples[i * 2];
+
+    // If last element, the neighbour is the first
+    clockwiseNeighbour = dartBoard.triples[(i == 9 ? 0 : i * 2 + 2)];
+
+    cv::line(images[DartBoardDrawn], dartAreaTriple->meanCorners[DartArea::Outer1], dartAreaTriple->meanCorners[DartArea::Outer2], _redColor);
+    cv::line(images[DartBoardDrawn], dartAreaTriple->meanCorners[DartArea::Outer1], dartAreaTriple->meanCorners[DartArea::Inner1], _redColor);
+    cv::line(images[DartBoardDrawn], dartAreaTriple->meanCorners[DartArea::Outer2], dartAreaTriple->meanCorners[DartArea::Inner2], _redColor);
+    cv::line(images[DartBoardDrawn], dartAreaTriple->meanCorners[DartArea::Inner1], dartAreaTriple->meanCorners[DartArea::Inner2], _redColor);
+
+    cv::line(images[DartBoardDrawn], dartAreaTriple->meanCorners[DartArea::Outer1], clockwiseNeighbour->meanCorners[DartArea::Outer2], _greenColor);
+    cv::line(images[DartBoardDrawn], dartAreaTriple->meanCorners[DartArea::Inner1], clockwiseNeighbour->meanCorners[DartArea::Inner2], _greenColor);
+
+    cv::line(images[DartBoardDrawn], dartAreaTriple->meanCorners[DartArea::Outer1], dartAreaDouble->meanCorners[DartArea::Outer1], _whiteColor);
+    cv::line(images[DartBoardDrawn], dartAreaTriple->meanCorners[DartArea::Outer2], dartAreaDouble->meanCorners[DartArea::Outer2], _whiteColor);
+
+    cv::line(images[DartBoardDrawn], dartAreaTriple->meanCorners[DartArea::Inner1], dartBoard.outerBullseyeCenter, _whiteColor);
+    cv::line(images[DartBoardDrawn], dartAreaTriple->meanCorners[DartArea::Inner2], dartBoard.outerBullseyeCenter, _whiteColor);
+
+    cv::circle(images[DartBoardDrawn], dartBoard.outerBullseyeCenter, dartBoard.outerBullseyeMeanRadius, Scalar(0, 100, 0), -1);
+    cv::circle(images[DartBoardDrawn], dartBoard.outerBullseyeCenter, dartBoard.innerBullseyeMeanRadius, Scalar(0, 0, 100), -1);
+  }
+
+  // DartBoardDrawn2
+  for (int i = 0; i < 10; i++)
+  {
+    DartArea* dartAreaDouble = dartBoard.doubles[i * 2];
+
+    DartArea* clockwiseNeighbour;
+    // If last element, the neighbour is the first
+    clockwiseNeighbour = dartBoard.doubles[(i == 9 ? 0 : i * 2 + 2)];
+
+    DartArea* dartAreaTriple = dartBoard.triples[i * 2];
+
+    // If last element, the neighbour is the first
+    clockwiseNeighbour = dartBoard.triples[(i == 9 ? 0 : i * 2 + 2)];
+
+    cv::line(images[DartBoardDrawn2], dartAreaTriple->meanCorners[DartArea::Outer1], dartAreaDouble->meanCorners[DartArea::Outer1], _whiteColor, 2);
+    cv::line(images[DartBoardDrawn2], dartAreaTriple->meanCorners[DartArea::Outer2], dartAreaDouble->meanCorners[DartArea::Outer2], _whiteColor, 2);
+
+    cv::line(images[DartBoardDrawn2], dartAreaTriple->meanCorners[DartArea::Inner1], dartBoard.outerBullseyeCenter, _whiteColor, 2);
+    cv::line(images[DartBoardDrawn2], dartAreaTriple->meanCorners[DartArea::Inner2], dartBoard.outerBullseyeCenter, _whiteColor, 2);
+
+    cv::circle(images[DartBoardDrawn2], dartBoard.outerBullseyeCenter, dartBoard.outerBullseyeMeanRadius, Scalar(0, 0, 0), -1);
+  }
+  dartBoard.drawBoard(images[DartBoardDrawn2], source.size());
+
+  std::string name = "Dartboard Progress";
+  _win.namedWindowResized(name);
+  setMouseCallback(name, mouseCallBack);
+  _win.switchableImgs(name, images);
+}
+
 #define TESTFUNC 0
 void testFunc()
 {
@@ -213,35 +440,35 @@ void testFunc()
     bool useHistogramAsLastResort = false;
 
     prepareBoard:
-    Mat image[END];
+    std::array<Mat, END> images;
 
     _win.imgshowResized(windowNameInput, src);
 
-    image[Source] = src;
+    images[Source] = src;
 
     if(useHistogramAsLastResort)
     {
-      Automation::histogramEqualizationColored(image[Source], image[Histogram]);
+      Automation::histogramEqualizationColored(images[Source], images[Histogram]);
     }
     else
     {
-      image[Histogram] = image[Source];
+      images[Histogram] = images[Source];
     }
     
-    Automation::colorFilter(image[Histogram], image[MaskRed], image[FilteredRed], Resources::red_1_histogram, Resources::red_2_histogram);
-    Automation::colorFilter(image[Histogram], image[MaskGreen], image[FilteredGreen], Resources::green_histogram);
+    Automation::colorFilter(images[Histogram], images[MaskRed], images[FilteredRed], Resources::red_1_histogram, Resources::red_2_histogram);
+    Automation::colorFilter(images[Histogram], images[MaskGreen], images[FilteredGreen], Resources::green_histogram);
 
-    Automation::erosion(image[FilteredRed], image[ErosionRed]);
-    Automation::erosion(image[FilteredGreen], image[ErosionGreen]);
+    Automation::erosion(images[FilteredRed], images[ErosionRed]);
+    Automation::erosion(images[FilteredGreen], images[ErosionGreen]);
 
-    const auto contoursRed = Automation::contours(image[ErosionRed], image[DrawingRed], true);
-    const auto contoursGreen = Automation::contours(image[ErosionGreen], image[DrawingGreen], true);
-    image[DrawingResult] = image[DrawingRed] + image[DrawingGreen];
+    const auto contoursRed = Automation::contours(images[ErosionRed], images[DrawingRed], true);
+    const auto contoursGreen = Automation::contours(images[ErosionGreen], images[DrawingGreen], true);
+    images[DrawingResult] = images[DrawingRed] + images[DrawingGreen];
 
     const auto dartAreasGreen = DartArea::calculateAreas(contoursGreen);
     const auto dartAreasRed = DartArea::calculateAreas(contoursRed);
 
-    DartBoard dartBoard(dartAreasGreen, dartAreasRed, image[Source]);
+    DartBoard dartBoard(dartAreasGreen, dartAreasRed, images[Source]);
     if(!dartBoard.isReady() && !useHistogramAsLastResort)
     {
       std::cout << "Using histograms as last resort!\n";
@@ -249,36 +476,39 @@ void testFunc()
       goto prepareBoard;
     }
 
-    DartArea::markAreas(image[DrawingResult], dartBoard.doubles, 3, cv::Scalar(0, 0, 255), 3);
-    DartArea::markAreas(image[DrawingResult], dartBoard.triples, 3, cv::Scalar(0, 0, 255), 3);
+    //DartBoard::markAreas(image[DrawingResult], dartBoard.doubles, 3, cv::Scalar(0, 0, 255), 3);
+    //DartBoard::markAreas(image[DrawingResult], dartBoard.triples, 3, cv::Scalar(0, 0, 255), 3);
 
-    dartBoard.drawBoard(image[FinalBoard], image[Source].size());
+    dartBoard.drawBoard(images[FinalBoard], images[Source].size());
 
-    _win.imgshowResized("Histogram", image[Histogram]); 
+    _win.imgshowResized("Histogram", images[Histogram]); 
 
-    _win.imgshowResized("Mask Red", image[MaskRed]);
-    _win.imgshowResized("Mask Green", image[MaskGreen]);
+    _win.imgshowResized("Mask Red", images[MaskRed]);
+    _win.imgshowResized("Mask Green", images[MaskGreen]);
 
-    _win.imgshowResized("Filtered Red", image[FilteredRed]);
-    _win.imgshowResized("Filtered Green", image[FilteredGreen]);
+    _win.imgshowResized("Filtered Red", images[FilteredRed]);
+    _win.imgshowResized("Filtered Green", images[FilteredGreen]);
 
-    _win.imgshowResized("Erosion Red", image[ErosionRed]);
-    _win.imgshowResized("Erosion Green", image[ErosionGreen]);
+    _win.imgshowResized("Erosion Red", images[ErosionRed]);
+    _win.imgshowResized("Erosion Green", images[ErosionGreen]);
 
-    _win.imgshowResized("Drawing Red", image[DrawingRed]);
-    _win.imgshowResized("Drawing Green", image[DrawingGreen]);
+    _win.imgshowResized("Drawing Red", images[DrawingRed]);
+    _win.imgshowResized("Drawing Green", images[DrawingGreen]);
 
-    _win.imgshowResized("Contoured Result", image[DrawingResult]);
+    _win.imgshowResized("Contoured Result", images[DrawingResult]);
 
-    image[FinalBoardOverlay] = image[Source] + image[FinalBoard];
+    images[FinalBoardOverlay] = images[Source] + images[FinalBoard];
+    _win.imgshowResized("Final Dartboard", images[FinalBoardOverlay]);
 
-    bool finalShown = true;
-    do
-    {
-      _win.imgshowResized("Final Dartboard", finalShown ? image[FinalBoardOverlay] : image[Source]);
+    //bool finalShown = true;
+    //do
+    //{
+    //  _win.imgshowResized("Final Dartboard", finalShown ? image[FinalBoardOverlay] : image[Source]);
 
-      finalShown = !finalShown;
-    } while(waitKey(0) == 't');
+    //  finalShown = !finalShown;
+    //} while(waitKey(0) == 't');
+
+    drawDartBoardProgressLine(dartBoard, images[Source], images[DrawingResult]);
   }
 }
 
