@@ -128,9 +128,14 @@ void DartArea::draw(cv::Mat& src, const cv::Scalar& color, bool drawPts, int rad
     }
   }
 
-  //std::vector<std::vector<cv::Point> > contourVec;
-  //contourVec.push_back(contour);
-  //cv::drawContours(src, contourVec, 0, color, 3); //Replace i with 0 for index. 
+  std::vector<std::vector<cv::Point> > contourVec;
+  contourVec.push_back(contour);
+  cv::drawContours(src, contourVec, 0, color, 3); //Replace i with 0 for index. 
+}
+
+bool DartArea::isRed() const
+{
+  return red;
 }
 
 //TODO: Maybe replace with dictionary, unsure yet..
@@ -142,18 +147,6 @@ void DartArea::markAreas(cv::Mat& src, std::array<DartArea*, 20> dartAreas, int 
   {
     area->draw(src, color, true, radius, thickness);
   }
-}
-
-std::vector<std::vector<cv::Point>> DartArea::convertToContours(std::array<DartArea*, 20> dartAreas)
-{
-  std::vector<std::vector<cv::Point>> result;
-
-  for(DartArea* dartArea : dartAreas)
-  {
-    result.push_back(dartArea->contour);
-  }
-
-  return result;
 }
 
 bool DartArea::operator==(const DartArea& d1) const
@@ -193,11 +186,8 @@ void DartBoard::checkNeighbour(DartArea& area1, DartArea& area2, const int idxAr
   }
 }
 
-void DartBoard::drawBoardContours(cv::Mat& img, cv::Size sizeReference)
+void DartBoard::drawBoard(cv::Mat& img, cv::Size sizeReference)
 {
-  const cv::Scalar green = cv::Scalar(0, 255, 0);
-  const cv::Scalar red = cv::Scalar(0, 0, 255);
-
   if(img.empty())
   {
     img = cv::Mat::zeros(sizeReference, CV_8UC3);
@@ -215,6 +205,8 @@ void DartBoard::drawBoardContours(cv::Mat& img, cv::Size sizeReference)
     contoursBuff.push_back(dartArea->contour);
   }
 
+  // TODO simples go here (maybe, color is very interesting topic)
+
   if(!outerBullseye.contour.empty() && !innerBullseye.contour.empty())
   {
     contoursBuff.push_back(outerBullseye.contour);
@@ -223,7 +215,7 @@ void DartBoard::drawBoardContours(cv::Mat& img, cv::Size sizeReference)
 
   for (size_t i = 0; i < contoursBuff.size(); i++)
   {
-    drawContours(img, contoursBuff, static_cast<int>(i), i % 2 ? red : green, 2);
+    drawContours(img, contoursBuff, static_cast<int>(i), i % 2 ? redColor : greenColor, 2);
   }
 }
 
@@ -405,7 +397,7 @@ void DartBoard::getCorners()
   }
 }
 
-void DartBoard::getBullseye(std::list<DartArea> greenContours, std::list<DartArea> redContours)
+void DartBoard::getBullseye()
 {
   const auto centerX = (doubles[AREA_11]->meanPoint.x + doubles[AREA_6]->meanPoint.x) / 2;
   const auto centerY = (doubles[AREA_20]->meanPoint.y + doubles[AREA_3]->meanPoint.y) / 2;
@@ -488,9 +480,11 @@ DartBoard::DartBoard(std::list<DartArea> greenContours, std::list<DartArea> redC
 
   for(DartArea* redArea : dartBoardRed)
   {
+    redArea->red = true;
     // Adds green contours to list if they're not already in it
     for (DartArea* greenNeighbour : redArea->neighbour)
     {
+      greenNeighbour->red = false;
       if (std::find(dartBoardGreen.begin(), dartBoardGreen.end(), greenNeighbour) != dartBoardGreen.end())
       {
         greenNeighbour->neighbour[1] = redArea;
@@ -565,7 +559,7 @@ DartBoard::DartBoard(std::list<DartArea> greenContours, std::list<DartArea> redC
   //drawAreas(drawing, doubles, "D");
   //drawAreas(drawing, triples, "T");
 
-  getBullseye(greenContours, redContours);
+  getBullseye();
   cv::circle(drawing, innerBullseyeCenter, 5, cv::Scalar(255, 255, 255), 5);
 
   getCorners();
@@ -622,10 +616,8 @@ DartBoard::DartBoard(std::list<DartArea> greenContours, std::list<DartArea> redC
   }
 
   std::array<cv::Point, 20> meanTryPts;
-  std::array<cv::Point, 20> outerTryPts;
   auto i = 0;
   cv::Mat meanTryImg = refImage.clone();
-  cv::Mat outerTryImg = refImage.clone();
   for(auto pair : betwPtsDoubleOuter)
   {
     meanTryPts[i] = (pair[0] + pair[1]) / 2;
@@ -636,8 +628,7 @@ DartBoard::DartBoard(std::list<DartArea> greenContours, std::list<DartArea> redC
 
   _win.imgshowResized("Test", drawing);
   _win.imgshowResized("Test2", startingPoints);
-
-  switchableImgs("Comparing", 't', meanTryImg, outerTryImg);
+  _win.imgshowResized("Test2", meanTryImg);
 
   ready = true;
 }

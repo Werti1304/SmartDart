@@ -9,6 +9,7 @@ public:
   cv::Point meanPoint;
   cv::Point significantPoints[2];
   std::vector<cv::Point> contour;
+  bool red;
 
   enum CornerArrangement
   {
@@ -22,6 +23,7 @@ public:
   DartArea(std::vector<cv::Point>);
   DartArea();
   void draw(cv::Mat& src, const cv::Scalar& color = cv::Scalar(0, 255, 0), bool drawPts = false, int radius = 5, int thickness = 5);
+  bool isRed() const;
 
   DartArea* neighbour[2] = { nullptr };
 
@@ -30,16 +32,14 @@ public:
 
   static std::list<DartArea> calculateAreas(std::vector<std::vector<cv::Point>> contours);
   static void markAreas(::cv::Mat& src, std::array<DartArea*, 20>, int radius, const cv::Scalar& color, int thickness);
-  static std::vector<std::vector<cv::Point>> convertToContours(std::array<DartArea*, 20> dartAreas);
-
-private:
 };
 
 class DartBoard
 {
 public:
   DartBoard(std::list<DartArea> greenContours, std::list<DartArea> redContours, const cv::Mat& refImage);
-  void drawBoardContours(cv::Mat& img, cv::Size sizeReference);
+  void drawBoard(cv::Mat& img, cv::Size sizeReference);
+  bool drawDartBoard(cv::Mat& img, int radius, int thickness);
   bool isReady() const;
 
   std::array<DartArea*, 20> singles; // TODO In se wörks
@@ -48,6 +48,9 @@ public:
   DartArea innerBullseye; 
   DartArea outerBullseye;
   cv::Point innerBullseyeCenter;
+
+  const cv::Scalar redColor{ 0, 0, 255 };
+  const cv::Scalar greenColor{ 0, 255, 0 };
    
 private:
   bool ready = false;
@@ -55,12 +58,12 @@ private:
 
   bool getNeighbours(DartArea& areaCmp, std::list<DartArea>& areaList);
   void getCorners();
-  void getBullseye(std::list<DartArea> greenContours, std::list<DartArea> redContours);
+  void getBullseye();
   static void filterTheOddOneOut(std::list<DartArea*>& dartBoardRed);
 
   // Are only here so we save 'em somewhere
-  std::list<DartArea> greenContours;
-  std::list<DartArea> redContours;
+  std::list<DartArea> greenContours{};
+  std::list<DartArea> redContours{};
 };
 
 //cv::Point getMaxDistancePoint(std::vector<cv::Point> inputArr, cv::Point input)
