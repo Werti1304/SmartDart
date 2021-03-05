@@ -527,6 +527,178 @@ void drawDartBoardProgressLine(DartBoard dartBoard, const Mat& source, const Mat
 #define TESTFUNC 0
 void testFunc()
 {
+  Mat testWithout = _win.imreadRel("Img3.jpg");
+  Mat testWith[] = { _win.imreadRel("Img4.jpg"),
+  _win.imreadRel("Img5.jpg"),
+  _win.imreadRel("Img6.jpg"), };
+
+  //create Background Subtractor objects
+  Ptr<BackgroundSubtractor> pBackSub;
+    pBackSub = createBackgroundSubtractorMOG2(500, 12, false);
+    //pBackSub = createBackgroundSubtractorKNN();
+
+  VideoCapture capture(VideoCapture(0));
+  if (!capture.isOpened()) {
+    //error in opening the video input
+    cerr << "Unable to open Videocapture" << endl;
+    return;
+  }
+  Mat frame, fgMask;
+  bool foundDart = false;
+  int frameDelay = 30;
+  bool coolDownStartet = false;
+  int takeFrames = 0;
+
+  int arcLengthMax = 0;
+  vector<vector<Point>> biggestContours;
+  Mat biggestContourFrame;
+  Mat biggestContourMask;
+
+  while (true) 
+  {
+    capture >> frame;
+    if (frame.empty())
+      break;
+    //update the background model
+    pBackSub->apply(frame, fgMask);
+    
+    //get the frame number and write it on the current frame
+    //rectangle(frame, cv::Point(10, 2), cv::Point(100, 20),
+    //  cv::Scalar(255, 255, 255), -1);
+    //stringstream ss;
+    //ss << capture.get(CAP_PROP_POS_FRAMES);
+    //string frameNumberString = ss.str();
+    //putText(frame, frameNumberString.c_str(), cv::Point(15, 15),
+    //  FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0));
+    //show the current frame and the fg masks
+    //imshow("Frame", frame);
+
+    if(frameDelay == 0)
+    {
+      vector<vector<Point>> contours;
+      findContours(fgMask, contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
+
+      cvtColor(fgMask, fgMask, COLOR_GRAY2BGR);
+
+      if(coolDownStartet)
+      {
+        takeFrames--;
+      }
+
+      for (int i = 0; i < contours.size(); i++)
+      {
+        auto length = arcLength(contours[i], true);
+        if (!coolDownStartet && length > 15) // If length > 15, start the cooldown
+        {
+          arcLengthMax = 0;
+          coolDownStartet = true;
+          takeFrames = 20;
+          frameDelay = 5; // Delay 5 frames so the dart doesn't get captured while flying
+          break;
+        }
+
+        if (takeFrames > 0 && arcLengthMax < length)
+        {
+          arcLengthMax = length;
+          biggestContours = contours;
+          biggestContourFrame = frame.clone();
+          biggestContourMask = fgMask.clone();
+        }
+      }
+    }
+    else
+    {
+      frameDelay--;
+    }
+
+    imshow("FG Mask", fgMask);
+    imshow("Frame", frame);
+
+    //get the input from the keyboard
+    int keyboard = waitKey(30);
+    if (keyboard == 'q' || keyboard == 27)
+      break;
+
+    if(coolDownStartet && takeFrames == 0)
+    {
+      // Draws the biggest found contours
+      static Scalar color(255, 0, 0);
+      for (int i = 0; i < biggestContours.size(); i++)
+      {
+        if(arcLength(biggestContours[i], true) > 15)
+        {
+          drawContours(biggestContourFrame, biggestContours, i, color);
+        }
+      }
+      imshow("FG Mask", biggestContourMask);
+      imshow("Frame", biggestContourFrame);
+
+      waitKey(0);
+
+      frameDelay = 30; // Delay of 30 frames so that the algorithm can get a new background image
+      pBackSub->apply(frame, fgMask, 1); // Reset background image
+      foundDart = false;
+      coolDownStartet = false;
+    }
+  }
+
+
+  //for(int i = 0; i < 3; i++)
+  //{
+  //  cv::Mat diffImage;
+  //  cv::absdiff(testWithout, testWith[i], diffImage);
+
+  //  cv::Mat foregroundMask = cv::Mat::zeros(diffImage.rows, diffImage.cols, CV_8UC1);
+
+  //  float threshold = 30.0f;
+  //  float dist;
+
+  //  for (int j = 0; j < diffImage.rows; ++j)
+  //  {
+  //    for (int i = 0; i < diffImage.cols; ++i)
+  //    {
+  //      cv::Vec3b pix = diffImage.at<cv::Vec3b>(j, i);
+
+  //      dist = (pix[0] * pix[0] + pix[1] * pix[1] + pix[2] * pix[2]);
+  //      dist = sqrt(dist);
+
+  //      if (dist > threshold)
+  //      {
+  //        foregroundMask.at<unsigned char>(j, i) = 255;
+  //      }
+  //    }
+  //  }
+
+  //  vector<vector<Point>> contours;
+  //  findContours(foregroundMask, contours, RETR_LIST, CHAIN_APPROX_SIMPLE);
+
+  //  double biggestArea = 0.0f;
+  //  int biggestContourIdx;
+  //  for (int i = 0; i < contours.size(); i++)
+  //  {
+  //    auto area = contourArea(contours[i]);
+
+  //    if (biggestArea < area)
+  //    {
+  //      biggestArea = area;
+  //      biggestContourIdx = i;
+  //    }
+  //  }
+
+  //  drawContours(testWith[i], contours, biggestContourIdx, Scalar(255, 0, 0), 5);
+
+  //  //TODO: See SSIM (bookmarks)
+
+  //  _win.imgshowResized("testWithout", testWithout);
+  //  _win.imgshowResized("testWith", testWith[i]);
+  //  _win.imgshowResized("Diff", foregroundMask);
+
+  //  waitKey(0);
+  //}
+
+  return;
+
+
   enum Images
   {
     Source,
@@ -547,6 +719,7 @@ void testFunc()
 
   std::list<Mat> testImages;
 
+  testImages.push_back(_win.imreadRel("Img1.jpg"));
   testImages.push_back(_win.imreadRel("TestImage.jpg"));
   testImages.push_back(_win.imreadRel("TestImage5.jpg"));
   testImages.push_back(_win.imreadRel("image.jpg"));
@@ -595,6 +768,12 @@ void testFunc()
       std::cout << "Using histograms as last resort!\n";
       useHistogramAsLastResort = true;
       goto prepareBoard;
+    }
+    else if(!dartBoard.isReady() && useHistogramAsLastResort)
+    {
+      std::cout << "Error";
+      
+      return;
     }
 
     //DartBoard::markAreas(image[DrawingResult], dartBoard.doubles, 3, cv::Scalar(0, 0, 255), 3);
