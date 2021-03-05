@@ -534,7 +534,7 @@ void testFunc()
 
   //create Background Subtractor objects
   Ptr<BackgroundSubtractor> pBackSub;
-    pBackSub = createBackgroundSubtractorMOG2(500, 12, false);
+    pBackSub = createBackgroundSubtractorMOG2(500, 16, false);
     //pBackSub = createBackgroundSubtractorKNN();
 
   VideoCapture capture(VideoCapture(0));
@@ -549,11 +549,12 @@ void testFunc()
   bool coolDownStartet = false;
   int takeFrames = 0;
 
-  int arcLengthMax = 0;
+  int areaMax = 0;
   vector<vector<Point>> biggestContours;
   Mat biggestContourFrame;
   Mat biggestContourMask;
 
+  RNG rng(time(0)); // RNG with seed of current time
   while (true) 
   {
     capture >> frame;
@@ -561,55 +562,44 @@ void testFunc()
       break;
     //update the background model
     pBackSub->apply(frame, fgMask);
-    
-    //get the frame number and write it on the current frame
-    //rectangle(frame, cv::Point(10, 2), cv::Point(100, 20),
-    //  cv::Scalar(255, 255, 255), -1);
-    //stringstream ss;
-    //ss << capture.get(CAP_PROP_POS_FRAMES);
-    //string frameNumberString = ss.str();
-    //putText(frame, frameNumberString.c_str(), cv::Point(15, 15),
-    //  FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0));
-    //show the current frame and the fg masks
-    //imshow("Frame", frame);
 
-    if(frameDelay == 0)
-    {
-      vector<vector<Point>> contours;
-      findContours(fgMask, contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
+    //if(frameDelay == 0)
+    //{
+    //  vector<vector<Point>> contours;3
+    //  findContours(fgMask, contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
 
-      cvtColor(fgMask, fgMask, COLOR_GRAY2BGR);
+    //  cvtColor(fgMask, fgMask, COLOR_GRAY2BGR);
 
-      if(coolDownStartet)
-      {
-        takeFrames--;
-      }
+    //  if(coolDownStartet)
+    //  {
+    //    takeFrames--;
+    //  }
 
-      for (int i = 0; i < contours.size(); i++)
-      {
-        auto length = arcLength(contours[i], true);
-        if (!coolDownStartet && length > 15) // If length > 15, start the cooldown
-        {
-          arcLengthMax = 0;
-          coolDownStartet = true;
-          takeFrames = 20;
-          frameDelay = 5; // Delay 5 frames so the dart doesn't get captured while flying
-          break;
-        }
+    //  for (int i = 0; i < contours.size(); i++)
+    //  {
+    //    auto area = contourArea(contours[i]);
+    //    if (!coolDownStartet && area > 15) // If length > 15, start the cooldown
+    //    {
+    //      areaMax = 0;
+    //      coolDownStartet = true;
+    //      takeFrames = 20;
+    //      frameDelay = 5; // Delay 5 frames so the dart doesn't get captured while flying
+    //      break;
+    //    }
 
-        if (takeFrames > 0 && arcLengthMax < length)
-        {
-          arcLengthMax = length;
-          biggestContours = contours;
-          biggestContourFrame = frame.clone();
-          biggestContourMask = fgMask.clone();
-        }
-      }
-    }
-    else
-    {
-      frameDelay--;
-    }
+    //    if (takeFrames > 0 && areaMax < area)
+    //    {
+    //      areaMax = area;
+    //      biggestContours = contours;
+    //      biggestContourFrame = frame.clone();
+    //      biggestContourMask = fgMask.clone();
+    //    }
+    //  }
+    //}
+    //else
+    //{
+    //  frameDelay--;
+    //}
 
     imshow("FG Mask", fgMask);
     imshow("Frame", frame);
@@ -619,27 +609,27 @@ void testFunc()
     if (keyboard == 'q' || keyboard == 27)
       break;
 
-    if(coolDownStartet && takeFrames == 0)
-    {
-      // Draws the biggest found contours
-      static Scalar color(255, 0, 0);
-      for (int i = 0; i < biggestContours.size(); i++)
-      {
-        if(arcLength(biggestContours[i], true) > 15)
-        {
-          drawContours(biggestContourFrame, biggestContours, i, color);
-        }
-      }
-      imshow("FG Mask", biggestContourMask);
-      imshow("Frame", biggestContourFrame);
+    //if(coolDownStartet && takeFrames == 0)
+    //{
+    //  // Draws the biggest found contours
+    //  Scalar color = Scalar(rng.uniform(50, 256), rng.uniform(0, 256), rng.uniform(0, 256));
+    //  for (int i = 0; i < biggestContours.size(); i++)
+    //  {
+    //    if(contourArea(biggestContours[i]) > 15)
+    //    {
+    //      drawContours(biggestContourFrame, biggestContours, i, color);
+    //    }
+    //  }
+    //  imshow("FG Mask", biggestContourMask);
+    //  imshow("Frame", biggestContourFrame);
 
-      waitKey(0);
+    //  waitKey(0);
 
-      frameDelay = 30; // Delay of 30 frames so that the algorithm can get a new background image
-      pBackSub->apply(frame, fgMask, 1); // Reset background image
-      foundDart = false;
-      coolDownStartet = false;
-    }
+    //  frameDelay = 30; // Delay of 30 frames so that the algorithm can get a new background image
+    //  pBackSub->apply(frame, fgMask, 1); // Reset background image
+    //  foundDart = false;
+    //  coolDownStartet = false;
+    //}
   }
 
 
