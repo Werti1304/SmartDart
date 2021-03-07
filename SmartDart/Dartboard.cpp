@@ -47,7 +47,7 @@ DartBoard::DartBoard(std::list<DartArea> greenContours, std::list<DartArea> redC
   {
     if (greenArea->neighbours[0] == nullptr || greenArea->neighbours[1] == nullptr)
     {
-      std::cout << "Something went wrong\n";
+      std::cout << "Something went wrong with the green areas\n";
       return;
     }
   }
@@ -56,7 +56,7 @@ DartBoard::DartBoard(std::list<DartArea> greenContours, std::list<DartArea> redC
   {
     if (redArea->neighbours[0] == nullptr || redArea->neighbours[1] == nullptr)
     {
-      std::cout << "Something went wrong\n";
+      std::cout << "Something went wrong with the red areas\n";
       return;
     }
   }
@@ -318,11 +318,34 @@ void DartBoard::getCorners()
     tripleArea->corners[DartArea::Inner1] = ptTmp1;
     tripleArea->corners[DartArea::Inner2] = ptTmp2;
 
-    // TODO Correct detection problem on problamatic dartboard (probably lies here somewhere)
-    auto doubleCorners1_n_2 = findPoints(doubleArea->contour,
-      std::array<cv::Point, 2>{tripleArea->corners[DartArea::Inner1], tripleArea->corners[DartArea::Inner2]}, false);
-    doubleArea->corners[DartArea::Outer2] = doubleCorners1_n_2[0];
-    doubleArea->corners[DartArea::Outer1] = doubleCorners1_n_2[1];
+    //// TODO Correct detection problem on problamatic dartboard (probably lies here somewhere)
+    //auto doubleCorners1_n_2 = findPoints(doubleArea->contour,
+    //  std::array<cv::Point, 2>{tripleArea->corners[DartArea::Inner1], tripleArea->corners[DartArea::Inner2]}, false);
+    //doubleArea->corners[DartArea::Outer2] = doubleCorners1_n_2[0];
+    //doubleArea->corners[DartArea::Outer1] = doubleCorners1_n_2[1];
+    maxDistanceSig0 = getDistance(doubleArea->significantPoints[0], doubleArea->meanPoint);
+    maxDistanceSig1 = getDistance(doubleArea->significantPoints[1], doubleArea->meanPoint);
+    maxDist1 = 0, maxDist2 = 0;
+
+    // Gets points that are furthest away from centerPoint on both sides (both have to be in a radius opposite to each other)
+    for (const auto pt : doubleArea->contour)
+    {
+      auto distTmp = getDistance(pt, centerPoint);
+      if (getDistance(pt, doubleArea->significantPoints[0]) < maxDistanceSig0 && maxDist1 < distTmp)
+      {
+        maxDist1 = distTmp;
+        ptTmp1 = pt;
+      }
+      distTmp = getDistance(pt, centerPoint);
+      if (getDistance(pt, doubleArea->significantPoints[1]) < maxDistanceSig1 && maxDist2 < distTmp)
+      {
+        maxDist2 = distTmp;
+        ptTmp2 = pt;
+      }
+    }
+    doubleArea->corners[DartArea::Outer1] = ptTmp1;
+    doubleArea->corners[DartArea::Outer2] = ptTmp2;
+
 
     // Gets points which are furthest away from Outer1 and Outer2
     auto tripleCorners1_n_2 = findPoints(tripleArea->contour,
@@ -387,15 +410,33 @@ dartArea->neighbours[0]->corners[idx2],
 dartArea->neighbours[1]->corners[idx1],
 dartArea->neighbours[1]->corners[idx2] };
 
-      const std::array<cv::Point, 2> pts = {
+      std::array<cv::Point, 2> pts = {
         dartArea->corners[idx1],
         dartArea->corners[idx2] };
 
       // Finds nearst 2 pts of the neighbourpoints to pts (one for each)
-      auto out = findPoints(neighbourPts, pts, true);
+      unsigned distances[2] = {INT16_MAX, INT16_MAX};
+
+      std::array<cv::Point, 2> outPts;
+      for (auto i = 0; i < 4; i++)
+      {
+        const cv::Point cPoint = neighbourPts[i];
+
+        for (auto k = 0; k < 2; k++)
+        {
+          const int distTmp = getDistance(pts[k], cPoint);
+          if (distTmp < distances[k])
+          {
+            distances[k] = distTmp;
+            outPts[k] = cPoint;
+          }
+        }
+      }
+   
+      //auto out = findPoints(neighbourPts, pts, true);
 
       // Calculates mean of the 2 points that have 2 points next to each other
-      std::array<cv::Point, 2> meanPoints = { (dartArea->corners[idx1] + out[0]) / 2, (dartArea->corners[idx2] + out[1]) / 2 };
+      std::array<cv::Point, 2> meanPoints = { (pts[0] + outPts[0]) / 2, (pts[1] + outPts[1]) / 2 };
 
       // Sorts the meanpoints in (anti)clockwise direction
       auto sortedMeanPoints = sortClockwise(outerBullseyeCenter, meanPoints);

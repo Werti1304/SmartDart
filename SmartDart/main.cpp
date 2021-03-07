@@ -462,6 +462,7 @@ void drawDartBoardProgressLine(DartBoard dartBoard, const Mat& source, const Mat
     line(images[DartBoardDrawn], dartAreaDouble->meanCorners[DartArea::Outer1], dartAreaDouble->meanCorners[DartArea::Outer2], _redColor);
     line(images[DartBoardDrawn], dartAreaDouble->meanCorners[DartArea::Outer1], dartAreaDouble->meanCorners[DartArea::Inner1], _redColor);
     line(images[DartBoardDrawn], dartAreaDouble->meanCorners[DartArea::Outer2], dartAreaDouble->meanCorners[DartArea::Inner2], _redColor);
+    line(images[DartBoardDrawn], dartAreaDouble->meanCorners[DartArea::Outer2], dartAreaDouble->meanCorners[DartArea::Inner2], _redColor);
     line(images[DartBoardDrawn], dartAreaDouble->meanCorners[DartArea::Inner1], dartAreaDouble->meanCorners[DartArea::Inner2], _redColor);
 
     line(images[DartBoardDrawn], dartAreaDouble->meanCorners[DartArea::Outer1], clockwiseNeighbour->meanCorners[DartArea::Outer2], _greenColor);
@@ -527,110 +528,110 @@ void drawDartBoardProgressLine(DartBoard dartBoard, const Mat& source, const Mat
 #define TESTFUNC 0
 void testFunc()
 {
-  Mat testWithout = _win.imreadRel("Img3.jpg");
-  Mat testWith[] = { _win.imreadRel("Img4.jpg"),
-  _win.imreadRel("Img5.jpg"),
-  _win.imreadRel("Img6.jpg"), };
+  //Mat testWithout = _win.imreadRel("Img3.jpg");
+  //Mat testWith[] = { _win.imreadRel("Img4.jpg"),
+  //_win.imreadRel("Img5.jpg"),
+  //_win.imreadRel("Img6.jpg"), };
 
-  //create Background Subtractor objects
-  Ptr<BackgroundSubtractor> pBackSub;
-    pBackSub = createBackgroundSubtractorMOG2(500, 16, false);
-    //pBackSub = createBackgroundSubtractorKNN();
+  ////create Background Subtractor objects
+  //Ptr<BackgroundSubtractor> pBackSub;
+  //  pBackSub = createBackgroundSubtractorMOG2(500, 16, false);
+  //  //pBackSub = createBackgroundSubtractorKNN();
 
-  VideoCapture capture(VideoCapture(0));
-  if (!capture.isOpened()) {
-    //error in opening the video input
-    cerr << "Unable to open Videocapture" << endl;
-    return;
-  }
-  Mat frame, fgMask;
-  bool foundDart = false;
-  int frameDelay = 30;
-  bool coolDownStartet = false;
-  int takeFrames = 0;
+  //VideoCapture capture(VideoCapture(0));
+  //if (!capture.isOpened()) {
+  //  //error in opening the video input
+  //  cerr << "Unable to open Videocapture" << endl;
+  //  return;
+  //}
+  //Mat frame, fgMask;
+  //bool foundDart = false;
+  //int frameDelay = 30;
+  //bool coolDownStartet = false;
+  //int takeFrames = 0;
 
-  int areaMax = 0;
-  vector<vector<Point>> biggestContours;
-  Mat biggestContourFrame;
-  Mat biggestContourMask;
+  //int areaMax = 0;
+  //vector<vector<Point>> biggestContours;
+  //Mat biggestContourFrame;
+  //Mat biggestContourMask;
 
-  RNG rng(time(0)); // RNG with seed of current time
-  while (true) 
-  {
-    capture >> frame;
-    if (frame.empty())
-      break;
-    //update the background model
-    pBackSub->apply(frame, fgMask);
+  //RNG rng(time(0)); // RNG with seed of current time
+  //while (true) 
+  //{
+  //  capture >> frame;
+  //  if (frame.empty())
+  //    break;
+  //  //update the background model
+  //  pBackSub->apply(frame, fgMask);
 
-    //if(frameDelay == 0)
-    //{
-    //  vector<vector<Point>> contours;3
-    //  findContours(fgMask, contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
+  //  if(frameDelay == 0)
+  //  {
+  //    vector<vector<Point>> contours;
+  //    findContours(fgMask, contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
 
-    //  cvtColor(fgMask, fgMask, COLOR_GRAY2BGR);
+  //    cvtColor(fgMask, fgMask, COLOR_GRAY2BGR);
 
-    //  if(coolDownStartet)
-    //  {
-    //    takeFrames--;
-    //  }
+  //    if(coolDownStartet)
+  //    {
+  //      takeFrames--;
+  //    }
 
-    //  for (int i = 0; i < contours.size(); i++)
-    //  {
-    //    auto area = contourArea(contours[i]);
-    //    if (!coolDownStartet && area > 15) // If length > 15, start the cooldown
-    //    {
-    //      areaMax = 0;
-    //      coolDownStartet = true;
-    //      takeFrames = 20;
-    //      frameDelay = 5; // Delay 5 frames so the dart doesn't get captured while flying
-    //      break;
-    //    }
+  //    for (int i = 0; i < contours.size(); i++)
+  //    {
+  //      auto area = contourArea(contours[i]);
+  //      if (!coolDownStartet && area > 15) // If length > 15, start the cooldown
+  //      {
+  //        areaMax = 0;
+  //        coolDownStartet = true;
+  //        takeFrames = 20;
+  //        frameDelay = 5; // Delay 5 frames so the dart doesn't get captured while flying
+  //        break;
+  //      }
 
-    //    if (takeFrames > 0 && areaMax < area)
-    //    {
-    //      areaMax = area;
-    //      biggestContours = contours;
-    //      biggestContourFrame = frame.clone();
-    //      biggestContourMask = fgMask.clone();
-    //    }
-    //  }
-    //}
-    //else
-    //{
-    //  frameDelay--;
-    //}
+  //      if (takeFrames > 0 && areaMax < area)
+  //      {
+  //        areaMax = area;
+  //        biggestContours = contours;
+  //        biggestContourFrame = frame.clone();
+  //        biggestContourMask = fgMask.clone();
+  //      }
+  //    }
+  //  }
+  //  else
+  //  {
+  //    frameDelay--;
+  //  }
 
-    imshow("FG Mask", fgMask);
-    imshow("Frame", frame);
+  //  imshow("FG Mask", fgMask);
+  //  imshow("Frame", frame);
 
-    //get the input from the keyboard
-    int keyboard = waitKey(30);
-    if (keyboard == 'q' || keyboard == 27)
-      break;
+  //  // get the input from the keyboard
+  //  int keyboard = waitKey(30);
+  //  if (keyboard == 'q' || keyboard == 27)
+  //    break;
 
-    //if(coolDownStartet && takeFrames == 0)
-    //{
-    //  // Draws the biggest found contours
-    //  Scalar color = Scalar(rng.uniform(50, 256), rng.uniform(0, 256), rng.uniform(0, 256));
-    //  for (int i = 0; i < biggestContours.size(); i++)
-    //  {
-    //    if(contourArea(biggestContours[i]) > 15)
-    //    {
-    //      drawContours(biggestContourFrame, biggestContours, i, color);
-    //    }
-    //  }
-    //  imshow("FG Mask", biggestContourMask);
-    //  imshow("Frame", biggestContourFrame);
+  //  if(coolDownStartet && takeFrames == 0)
+  //  {
+  //    // Draws the biggest found contours
+  //    Scalar color = Scalar(rng.uniform(50, 256), rng.uniform(0, 256), rng.uniform(0, 256));
+  //    for (int i = 0; i < biggestContours.size(); i++)
+  //    {
+  //      if(contourArea(biggestContours[i]) > 15)
+  //      {
+  //        drawContours(biggestContourFrame, biggestContours, i, color);
+  //      }
+  //    }
+  //    imshow("FG Mask", biggestContourMask);
+  //    imshow("Frame", biggestContourFrame);
 
-    //  waitKey(0);
+  //    waitKey(0);
 
-    //  frameDelay = 30; // Delay of 30 frames so that the algorithm can get a new background image
-    //  pBackSub->apply(frame, fgMask, 1); // Reset background image
-    //  foundDart = false;
-    //  coolDownStartet = false;
-    //}
-  }
+  //    frameDelay = 30; // Delay of 30 frames so that the algorithm can get a new background image
+  //    pBackSub->apply(frame, fgMask, 1); // Reset background image
+  //    foundDart = false;
+  //    coolDownStartet = false;
+  //  }
+  //}
 
 
   //for(int i = 0; i < 3; i++)
@@ -686,9 +687,6 @@ void testFunc()
   //  waitKey(0);
   //}
 
-  return;
-
-
   enum Images
   {
     Source,
@@ -709,6 +707,16 @@ void testFunc()
 
   std::list<Mat> testImages;
 
+  Mat inputImage;
+  VideoCapture cap = VideoCapture(0);
+  cap.set(CAP_PROP_XI_FRAMERATE, 1);
+  cap.set(CAP_PROP_FRAME_WIDTH, 2592);
+  cap.set(CAP_PROP_FRAME_HEIGHT, 1944);
+  cap.set(CAP_PROP_AUTO_EXPOSURE, 0.25);
+  cap.read(inputImage);
+  cvtColor(inputImage, inputImage, COLOR_RGB2BGR); // Needed for VideoCapture b/c OpenCV is dumb
+
+  testImages.push_back(inputImage);
   testImages.push_back(_win.imreadRel("Img1.jpg"));
   testImages.push_back(_win.imreadRel("TestImage.jpg"));
   testImages.push_back(_win.imreadRel("TestImage5.jpg"));
@@ -738,9 +746,17 @@ void testFunc()
     {
       images[Histogram] = images[Source];
     }
-    
-    Automation::colorFilter(images[Histogram], images[MaskRed], images[FilteredRed], Resources::red_1_histogram, Resources::red_2_histogram);
-    Automation::colorFilter(images[Histogram], images[MaskGreen], images[FilteredGreen], Resources::green_histogram);
+
+    if(useHistogramAsLastResort)
+    {
+      Automation::colorFilter(images[Histogram], images[MaskRed], images[FilteredRed], Resources::red_1_histogram, Resources::red_2_histogram);
+      Automation::colorFilter(images[Histogram], images[MaskGreen], images[FilteredGreen], Resources::green_histogram);
+    }
+    else
+    {
+      Automation::colorFilter(images[Source], images[MaskRed], images[FilteredRed], Resources::red_1_default, Resources::red_2_default);
+      Automation::colorFilter(images[Source], images[MaskGreen], images[FilteredGreen], Resources::green_default);
+    }
 
     Automation::erosion(images[FilteredRed], images[ErosionRed]);
     Automation::erosion(images[FilteredGreen], images[ErosionGreen]);
@@ -757,11 +773,30 @@ void testFunc()
     {
       std::cout << "Using histograms as last resort!\n";
       useHistogramAsLastResort = true;
+
+      _win.imgshowResized("Histogram", images[Histogram]);
+
+      _win.imgshowResized("Mask Red", images[MaskRed]);
+      _win.imgshowResized("Mask Green", images[MaskGreen]);
+
+      _win.imgshowResized("Filtered Red", images[FilteredRed]);
+      _win.imgshowResized("Filtered Green", images[FilteredGreen]);
+
+      _win.imgshowResized("Erosion Red", images[ErosionRed]);
+      _win.imgshowResized("Erosion Green", images[ErosionGreen]);
+
+      _win.imgshowResized("Drawing Red", images[DrawingRed]);
+      _win.imgshowResized("Drawing Green", images[DrawingGreen]);
+
+      _win.imgshowResized("Contoured Result", images[DrawingResult]);
+
+      waitKey(0);
+
       goto prepareBoard;
     }
     else if(!dartBoard.isReady() && useHistogramAsLastResort)
     {
-      std::cout << "Error";
+      std::cout << "Error" << std::endl;
       
       return;
     }
@@ -821,13 +856,14 @@ int main(int argc, char** argv)
   //defInputImage = imread("/home/pi/Desktop/TestImage5.jpg"); // Init inputImage
   defInputImage = _win.imreadRel("TestImage.jpg"); // Init inputImage
   //defInputImage = imread("/home/pi/Desktop/MaskGreen.jpg"); // Init inputImage
-  //VideoCapture cap = VideoCapture(0);
-  //cap.set(CAP_PROP_XI_FRAMERATE, 1);
-  //cap.set(CAP_PROP_FRAME_WIDTH, 2592);
-  //cap.set(CAP_PROP_FRAME_HEIGHT, 1944);
-  //cap.set(CAP_PROP_AUTO_EXPOSURE, 0.25);
-  //cap.read(inputImage);
-  //cvtColor(inputImage, inputImage, COLOR_RGB2BGR); // Needed for VideoCapture b/c OpenCV is dumb
+  VideoCapture cap = VideoCapture(0);
+  cap.set(CAP_PROP_XI_FRAMERATE, 1);
+  cap.set(CAP_PROP_FRAME_WIDTH, 2592);
+  cap.set(CAP_PROP_FRAME_HEIGHT, 1944);
+  cap.set(CAP_PROP_AUTO_EXPOSURE, 0.25);
+  cap.read(defInputImage);
+  cvtColor(defInputImage, defInputImage, COLOR_RGB2BGR); // Needed for VideoCapture b/c OpenCV is dumb
+  cap.release();
 
   if(defInputImage.data == nullptr)
   {
@@ -872,7 +908,7 @@ int main(int argc, char** argv)
     //  break;
     case 'b':
 
-      Automation::histogramEqualizationColored(defInputImage, defInputImage);
+      //Automation::histogramEqualizationColored(defInputImage, defInputImage);
       colorTest();
       break;
     //case 'c':

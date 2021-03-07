@@ -44,13 +44,13 @@ void Automation::erosion(const Mat& src, Mat& out)
 
   blur(src_gray, src_gray, Size(3, 3));
 
-  //Canny(src_gray, out, 50, 50 * 2);
+  Canny(src_gray, out, 50, 50 * 2);
 
-  erode(src_gray, eroded_image, Mat());
+  //erode(src_gray, eroded_image, Mat());
 
-  out = src_gray - eroded_image;
+  //out = src_gray - eroded_image;
 
-  threshold(out, out, 1, 255, THRESH_BINARY);
+  //threshold(out, out, 1, 255, THRESH_BINARY);
 }
 
 /**
