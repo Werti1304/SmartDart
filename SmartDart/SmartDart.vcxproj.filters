@@ -8,8 +8,6 @@
     <ClCompile Include="HSVTrackbar.cpp">
       <Filter>ScalarTrackbar</Filter>
     </ClCompile>
-    <ClCompile Include="WindowHelper.cpp" />
-    <ClCompile Include="ImageStacker.cpp" />
     <ClCompile Include="DartAreas.cpp">
       <Filter>DartArea</Filter>
     </ClCompile>
@@ -19,7 +17,16 @@
     <ClCompile Include="Dartboard.cpp">
       <Filter>DartArea</Filter>
     </ClCompile>
+    <ClCompile Include="WindowHelper.cpp">
+      <Filter>Helper</Filter>
+    </ClCompile>
     <ClCompile Include="PointHelper.cpp">
+      <Filter>Helper</Filter>
+    </ClCompile>
+    <ClCompile Include="Testing.cpp">
+      <Filter>Testing</Filter>
+    </ClCompile>
+    <ClCompile Include="DartAreaName.cpp">
       <Filter>DartArea</Filter>
     </ClCompile>
   </ItemGroup>
@@ -30,6 +37,12 @@
     <Filter Include="DartArea">
       <UniqueIdentifier>{f79976c3-0ba7-4b51-85ad-cf933526fb5f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Testing">
+      <UniqueIdentifier>{9f178a8a-63fe-41b6-8db6-08396a2a1667}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Helper">
+      <UniqueIdentifier>{a6d5a875-901d-44ba-b26d-e998c9e97b7b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ScalarTrackbar.h">
@@ -38,8 +51,6 @@
     <ClInclude Include="HSVTrackbar.h">
       <Filter>ScalarTrackbar</Filter>
     </ClInclude>
-    <ClInclude Include="WindowHelper.h" />
-    <ClInclude Include="ImageStacker.h" />
     <ClInclude Include="DartAreas.h">
       <Filter>DartArea</Filter>
     </ClInclude>
@@ -48,10 +59,22 @@
     <ClInclude Include="Automation.h">
       <Filter>DartArea</Filter>
     </ClInclude>
-    <ClInclude Include="PointHelper.h">
+    <ClInclude Include="DartBoard.h">
       <Filter>DartArea</Filter>
     </ClInclude>
-    <ClInclude Include="DartBoard.h">
+    <ClInclude Include="Testing.h">
+      <Filter>Testing</Filter>
+    </ClInclude>
+    <ClInclude Include="WindowHelper.h">
+      <Filter>Helper</Filter>
+    </ClInclude>
+    <ClInclude Include="PointHelper.h">
+      <Filter>Helper</Filter>
+    </ClInclude>
+    <ClInclude Include="ListHelper.h">
+      <Filter>Helper</Filter>
+    </ClInclude>
+    <ClInclude Include="DartAreaName.h">
       <Filter>DartArea</Filter>
     </ClInclude>
   </ItemGroup>

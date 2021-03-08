@@ -7,7 +7,7 @@
 
 using namespace PointHelper;
 
-DartArea::DartArea(std::vector<cv::Point> inputPoints) : contour(inputPoints)
+DartArea::DartArea(std::vector<cv::Point> inputPoints, bool drawAsContours) : contour(inputPoints), drawAsContours(drawAsContours)
 {
   const int ptCount = inputPoints.size();
 
@@ -52,20 +52,24 @@ DartArea::DartArea(std::vector<cv::Point> inputPoints) : contour(inputPoints)
 DartArea::DartArea()
 = default;
 
-void DartArea::draw(cv::Mat& src, const cv::Scalar& color, bool drawPts, int radius, int thickness)
+void DartArea::draw(cv::Mat& src, const cv::Scalar& color, int thickness) const
 {
-  if(drawPts)
+  if(drawAsContours)
   {
-    circle(src, meanPoint, radius, color, thickness);
-    for (const auto pt : significantPoints)
-    {
-      circle(src, pt, radius, color, thickness);
-    }
+    std::vector<std::vector<cv::Point> > contourVec;
+    contourVec.push_back(contour);
+    cv::drawContours(src, contourVec, 0, color, 3); //Replace i with 0 for index.
+    return;
   }
 
-  std::vector<std::vector<cv::Point> > contourVec;
-  contourVec.push_back(contour);
-  cv::drawContours(src, contourVec, 0, color, 3); //Replace i with 0 for index. 
+  cv::polylines(src, contour, true, color, thickness);
+}
+
+void DartArea::drawUsingNameColor(cv::Mat& src, int thickness) const
+{
+  cv::Scalar color = name.getColor();
+
+  draw(src, color, thickness);
 }
 
 bool DartArea::isRed() const

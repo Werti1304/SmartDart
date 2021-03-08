@@ -88,24 +88,27 @@
   </PropertyGroup>
   <ItemGroup>
     <ClCompile Include="Automation.cpp" />
+    <ClCompile Include="DartAreaName.cpp" />
     <ClCompile Include="DartAreas.cpp" />
     <ClCompile Include="Dartboard.cpp" />
     <ClCompile Include="HSVTrackbar.cpp" />
-    <ClCompile Include="ImageStacker.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="PointHelper.cpp" />
     <ClCompile Include="ScalarTrackbar.cpp" />
+    <ClCompile Include="Testing.cpp" />
     <ClCompile Include="WindowHelper.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Automation.h" />
+    <ClInclude Include="DartAreaName.h" />
     <ClInclude Include="DartAreas.h" />
     <ClInclude Include="DartBoard.h" />
     <ClInclude Include="HSVTrackbar.h" />
-    <ClInclude Include="ImageStacker.h" />
+    <ClInclude Include="ListHelper.h" />
     <ClInclude Include="PointHelper.h" />
     <ClInclude Include="Resources.h" />
     <ClInclude Include="ScalarTrackbar.h" />
+    <ClInclude Include="Testing.h" />
     <ClInclude Include="Types.h" />
     <ClInclude Include="WindowHelper.h" />
   </ItemGroup>

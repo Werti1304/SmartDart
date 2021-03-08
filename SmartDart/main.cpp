@@ -9,301 +9,52 @@
 #include "DartBoard.h"
 #include "WindowHelper.h"
 #include "Resources.h"
+#include "Testing.h"
 
 using namespace cv;
 using namespace std;
 
-#pragma region Helper
-template<class T>
-void doListStats(list<T> list)
-{
-  T min = numeric_limits<T>::max();
-  T max = 0;
-  double sum;
-
-  for (auto i : list)
-  {
-    if (i < min)
-    {
-      min = i;
-    }
-    if (i > max)
-    {
-      max = i;
-    }
-    sum += i;
-  }
-
-  T valCount = list.size();
-  T mean = sum / valCount;
-
-  std::cout << "Values: " << valCount << "\nSum: " << sum << "\nMean: " << mean << "\nMin: " << min << "\nMax: " << max << endl;
-}
-#pragma endregion
-
-#pragma region TestFunctions
-
-string windowNameInput = "Input";
-
-string windowNameMask = "Mask";
-string windowNameOutput = "Output";
-
-Mat defInputImage;
-Mat inputImageHsv;
-int hsvLowValues[3] = { 0, 0, 0 }; // Default values
-int hsvHighValues[3] = { 255, 255, 255 }; // Default values
-
-Mat src_gray;
-int thresh = 50;
-int minArea = 150;
-string contourWindow = "Contours";
-string cannyWindow = "Canny Edge Detection";
-static void CannyTestThreshCallback(int, void*)
-{
-  Mat canny_output;
-  vector<vector<Point> > contours;
-  vector<Vec4i> hierarchy;
-
-  Canny(src_gray, canny_output, thresh, thresh * 2);
-
-  findContours(canny_output, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE);
-
-  Mat drawing = Mat::zeros(canny_output.size(), CV_8UC3);
-  RNG rng(time(0)); // RNG with seed of current time
-
-  for (size_t i = 0; i < contours.size(); i++)
-  {
-    // Perimeter
-    vector<Point_<int>> approx_curve;
-    auto currentContour = contours.at(i);
-    const auto epsilon = 0.1 * arcLength(currentContour, true);
-    approxPolyDP(currentContour, approx_curve, epsilon, true);
-    const auto perimeter = arcLength(approx_curve, true);
-
-    //if (contourArea(contours.at(i)) > minArea)
-    if (perimeter > minArea)
-    {
-      cout << perimeter << "\n";
-      Scalar color = Scalar(rng.uniform(50, 256), rng.uniform(0, 256), rng.uniform(0, 256));
-      
-      drawContours(drawing, contours, static_cast<int>(i), color, 2, LINE_8, hierarchy, 0);
-    }
-  }
-
-  imshow(contourWindow, drawing);
-  imshow(cannyWindow, canny_output);
-}
-
-void cannyTest(const Mat& inputImage = defInputImage)
-{
-  imshow(windowNameInput, inputImage);
-
-  _win.namedWindowResized(contourWindow);
-  _win.namedWindowResized(cannyWindow);
-
-  cvtColor(inputImage, src_gray, COLOR_BGR2GRAY);
-  blur(src_gray, src_gray, Size(3, 3));
-
-  const char* source_window = "Source";
-  _win.imgshowResized(source_window, inputImage);
-  const int max_thresh = 255;
-  const int maxArea = 500;
-  createTrackbar("Canny thresh:", source_window, &thresh, max_thresh, CannyTestThreshCallback);
-  createTrackbar("MinArea:", source_window, &minArea, maxArea, CannyTestThreshCallback);
-  CannyTestThreshCallback(0, 0);
-
-  waitKey(0);
-}
-
-void onColorFilterChange()
-{
-  //// https://alloyui.com/examples/color-picker/hsv.html
-  const Scalar min_Color = Scalar(hsvLowValues[0], hsvLowValues[1], hsvLowValues[2]);
-  const Scalar max_Color = Scalar(hsvHighValues[0], hsvHighValues[1], hsvHighValues[2]);
-
-  Mat colorFilteredMask;
-  inRange(inputImageHsv, min_Color, max_Color, colorFilteredMask);
-
-  Mat result;
-  bitwise_and(defInputImage, defInputImage, result, colorFilteredMask);
-
-  imshow(windowNameMask, colorFilteredMask);
-  imshow(windowNameOutput, result);
-}
-
-void colorTest(const Mat& inputImage = defInputImage)
-{
-  imshow(windowNameInput, inputImage);
-
-  cvtColor(inputImage, inputImageHsv, COLOR_BGR2HSV); // Init inputImageHsv
-
-  // Create windows in right size
-  _win.namedWindowResized(windowNameMask);
-  _win.namedWindowResized(windowNameOutput);
-
-  // Create trackbar for low bar of colors
-  HSVTrackbar trackbarLow("HSV-Trackbar Low", hsvLowValues);
-
-  // Create trackbar for high bar of colors
-  HSVTrackbar trackbarHigh("HSV-Trackbar High", hsvHighValues);
-
-  // First run to init the images
-  onColorFilterChange();
-
-  for (;;)
-  {
-    const char ch = waitKey(0);
-    if (ch == 'q')
-    {
-      return;
-    }
-    if (ch == 'c')
-    {
-      trackbarLow.setCallback(onColorFilterChange);
-      trackbarHigh.setCallback(onColorFilterChange);
-    }
-    else if (ch == 'r')
-    {
-      trackbarLow.setCallback(nullptr);
-      trackbarHigh.setCallback(nullptr);
-    }
-    else
-    {
-      onColorFilterChange();
-    }
-  }
-}
-
-#pragma endregion
-
-DartBoard* _dartboard;
+DartBoard* dartboard;
 string callBackMatName = "Dartboard Progress";
 Mat callBackMatSource;
 bool resetCallback = false;
 
+Mat defInputImage;
+string windowNameInput = "Input";
+
+// Hitbox detection (for now)
 void mouseCallBack(int event, int x, int y, int flags, void* userdata)
 {
   if (event == EVENT_LBUTTONDOWN)
   {
-    if(resetCallback)
+    if (resetCallback)
     {
       resetCallback = false;
       _win.imgshowResized(callBackMatName, callBackMatSource);
       return;
     }
-    const Point pt(x, y);
-    DartArea* insideArea = nullptr;
 
-    for(DartArea* area : _dartboard->triples)
-    {
-      if(pointPolygonTest(area->contour, pt, false) > 0)
-      {
-        insideArea = area;
-        goto end;
-      }
-    }
-    for (DartArea* area : _dartboard->doubles)
-    {
-      if (pointPolygonTest(area->contour, pt, false) > 0)
-      {
-        insideArea = area;
-        goto end;
-      }
-    }
-    if (pointPolygonTest(_dartboard->innerBullseye.contour, pt, false) > 0)
-    {
-      insideArea = &_dartboard->innerBullseye;
-      goto end;
-    }
-    if (pointPolygonTest(_dartboard->outerBullseye.contour, pt, false) > 0)
-    {
-      insideArea = &_dartboard->outerBullseye;
-      goto end;
-    }
+    auto* area = dartboard->detectHit(cv::Point(x, y));
 
-    for (int i = 0; i < 10; i++)
-    {
-      DartArea* areaDouble = _dartboard->doubles[i * 2];
-      DartArea* areaTriple = _dartboard->triples[i * 2];
-
-      DartArea* clockwiseNeighbourDouble = _dartboard->doubles[(i == 9 ? 0 : i * 2 + 2)];
-      DartArea* clockwiseNeighbourTriple = _dartboard->triples[(i == 9 ? 0 : i * 2 + 2)];
-
-      std::vector<Point> pts = {
-        areaDouble->meanCorners[DartArea::Outer1],
-        areaDouble->meanCorners[DartArea::Outer2],
-        areaTriple->meanCorners[DartArea::Outer2],
-        areaTriple->meanCorners[DartArea::Inner2],
-        _dartboard->outerBullseyeCenter,
-        areaTriple->meanCorners[DartArea::Inner1],
-        areaTriple->meanCorners[DartArea::Outer1], };
-
-      if (pointPolygonTest(pts, pt, false) > 0)
-      {
-        resetCallback = true;
-        Mat test = Mat::zeros(callBackMatSource.size(), CV_8UC3);
-
-        int fontFace = 1;
-        int fontScale = 2;
-        Scalar color = _whiteColor;
-        //putText(test, "D-O1", pts[0], fontFace, fontScale, color);
-        //putText(test, "D-O2", pts[1], fontFace, fontScale, color);
-        //putText(test, "T-O2", pts[2], fontFace, fontScale, color);
-        //putText(test, "T-I2", pts[3], fontFace, fontScale, color);
-        //putText(test, "Center", pts[4], fontFace, fontScale, color);
-        //putText(test, "T-I1", pts[5], fontFace, fontScale, color);
-        //putText(test, "T-O1", pts[6], fontFace, fontScale, color);
-
-        polylines(test, pts, true, _whiteColor);
-        _win.imgshowResized(callBackMatName, test);
-        return;
-      };
-
-      pts = {
-      areaDouble->meanCorners[DartArea::Outer1],
-      clockwiseNeighbourDouble->meanCorners[DartArea::Outer2],
-      clockwiseNeighbourTriple->meanCorners[DartArea::Outer2],
-      clockwiseNeighbourTriple->meanCorners[DartArea::Inner2],
-      _dartboard->outerBullseyeCenter,
-      areaTriple->meanCorners[DartArea::Inner1],
-      areaTriple->meanCorners[DartArea::Outer1] };
-
-      if (pointPolygonTest(pts, pt, false) > 0)
-      {
-        resetCallback = true;
-        Mat test = Mat::zeros(callBackMatSource.size(), CV_8UC3);
-
-        int fontFace = 1;
-        int fontScale = 2;
-        Scalar color = _whiteColor;
-        //putText(test, "D-O1", pts[0], fontFace, fontScale, color);
-        //putText(test, "D-O2", pts[1], fontFace, fontScale, color);
-        //putText(test, "T-O2", pts[2], fontFace, fontScale, color);
-        //putText(test, "T-I2", pts[3], fontFace, fontScale, color);
-        //putText(test, "Center NEIGHBOUR", pts[4], fontFace, fontScale, color);
-        //putText(test, "T-I1", pts[5], fontFace, fontScale, color);
-        //putText(test, "T-O1", pts[6], fontFace, fontScale, color);
-
-        polylines(test, pts, true, _whiteColor);
-        _win.imgshowResized(callBackMatName, test);
-        return;
-      }
-    }
-
-  end:
-    if (insideArea != nullptr)
+    if (area != nullptr)
     {
       resetCallback = true;
-      Mat test = Mat::zeros(callBackMatSource.size(), CV_8UC3);
-      insideArea->draw(test, insideArea->isRed() ? _redColor : _greenColor);
-      _win.imgshowResized(callBackMatName, test);
+      //Mat areaImg = Mat::zeros(callBackMatSource.size(), CV_8UC3);
+      Mat areaImg = defInputImage.clone();
+      area->drawUsingNameColor(areaImg);
+
+      std::stringstream text;
+      text << "+" << area->name.getScore();
+      putText(areaImg, text.str(), dartboard->titlePoint, 1, 4, _whiteColor, 3);
+
+      _win.imgshowResized(callBackMatName, areaImg);
     }
   }
 }
 
 void drawDartBoardProgressLine(DartBoard dartBoard, const Mat& source, const Mat& contours)
 {
-  _dartboard = &dartBoard;
+  dartboard = &dartBoard;
 
   enum Images
   {
@@ -362,7 +113,7 @@ void drawDartBoardProgressLine(DartBoard dartBoard, const Mat& source, const Mat
   {
     circle(images[DartBoardNeighbour], pt, 3, _redColor, 3);
   }
-  for(DartArea* neighbour : dartBoard.doubles[AREA_20]->neighbours)
+  for(auto neighbour : dartBoard.doubles[AREA_20]->neighbours)
   {
     circle(images[DartBoardNeighbour], neighbour->meanPoint, 3, _greenColor, 3);
     for (auto pt : neighbour->significantPoints)
@@ -407,25 +158,25 @@ void drawDartBoardProgressLine(DartBoard dartBoard, const Mat& source, const Mat
   }
 
   // DartBoardSigBullseye
-  circle(images[DartBoardSigBullseye], dartBoard.innerBullseye.meanPoint, 3, _redColor, 3);
-  circle(images[DartBoardSigBullseye], dartBoard.innerBullseye.significantPoints[0], 3, _redColor, 3);
-  circle(images[DartBoardSigBullseye], dartBoard.innerBullseye.significantPoints[1], 3, _redColor, 3);
-  circle(images[DartBoardSigBullseye], dartBoard.outerBullseye.meanPoint, 3, _greenColor, 3);
-  circle(images[DartBoardSigBullseye], dartBoard.outerBullseye.significantPoints[0], 3, _greenColor, 3);
-  circle(images[DartBoardSigBullseye], dartBoard.outerBullseye.significantPoints[1], 3, _greenColor, 3);
+  circle(images[DartBoardSigBullseye], dartBoard.bullseye.meanPoint, 3, _redColor, 3);
+  circle(images[DartBoardSigBullseye], dartBoard.bullseye.significantPoints[0], 3, _redColor, 3);
+  circle(images[DartBoardSigBullseye], dartBoard.bullseye.significantPoints[1], 3, _redColor, 3);
+  circle(images[DartBoardSigBullseye], dartBoard.singleBull.meanPoint, 3, _greenColor, 3);
+  circle(images[DartBoardSigBullseye], dartBoard.singleBull.significantPoints[0], 3, _greenColor, 3);
+  circle(images[DartBoardSigBullseye], dartBoard.singleBull.significantPoints[1], 3, _greenColor, 3);
 
   // DartBoardCon
   dartBoard.drawBoard(images[DartBoardCon], source.size());
-  circle(images[DartBoardCon], dartBoard.outerBullseyeCenter, 5, _whiteColor, 5);
+  circle(images[DartBoardCon], dartBoard.singleBullCenter, 5, _whiteColor, 5);
 
   // DartBoardCorners
   for (auto i = 0; i < 20; i++)
   {
-    for (Point point : dartBoard.triples[i]->corners)
+    for (auto point : dartBoard.triples[i]->corners)
     {
       circle(images[DartBoardCorners], point, 2, Scalar(255, 255, 255), 2);
     }
-    for (Point point : dartBoard.doubles[i]->corners)
+    for (auto point : dartBoard.doubles[i]->corners)
     {
       circle(images[DartBoardCorners], point, 2, Scalar(255, 255, 255), 2);
     }
@@ -435,7 +186,7 @@ void drawDartBoardProgressLine(DartBoard dartBoard, const Mat& source, const Mat
   for (auto i = 0; i < 10; i++)
   {
     //Reds contain meanCorners info, so we'll only iterate through them
-    DartArea* dartArea = dartBoard.doubles[i * 2];
+    auto dartArea = dartBoard.doubles[i * 2];
 
     circle(images[DartBoardSortedMeanCorners], dartArea->meanCorners[DartArea::Outer1], 5, _redColor, 5);
     circle(images[DartBoardSortedMeanCorners], dartArea->meanCorners[DartArea::Outer2], 5, _greenColor, 5);
@@ -451,9 +202,9 @@ void drawDartBoardProgressLine(DartBoard dartBoard, const Mat& source, const Mat
   }
 
   // DartBoardDrawn
-  for(int i = 0; i < 10; i++)
+  for(auto i = 0; i < 10; i++)
   {
-    DartArea* dartAreaDouble = dartBoard.doubles[i * 2];
+    auto dartAreaDouble = dartBoard.doubles[i * 2];
     
     DartArea* clockwiseNeighbour;
     // If last element, the neighbour is the first
@@ -468,7 +219,7 @@ void drawDartBoardProgressLine(DartBoard dartBoard, const Mat& source, const Mat
     line(images[DartBoardDrawn], dartAreaDouble->meanCorners[DartArea::Outer1], clockwiseNeighbour->meanCorners[DartArea::Outer2], _greenColor);
     line(images[DartBoardDrawn], dartAreaDouble->meanCorners[DartArea::Inner1], clockwiseNeighbour->meanCorners[DartArea::Inner2], _greenColor);
 
-    DartArea* dartAreaTriple = dartBoard.triples[i * 2];
+    auto dartAreaTriple = dartBoard.triples[i * 2];
 
     // If last element, the neighbour is the first
     clockwiseNeighbour = dartBoard.triples[(i == 9 ? 0 : i * 2 + 2)];
@@ -484,34 +235,27 @@ void drawDartBoardProgressLine(DartBoard dartBoard, const Mat& source, const Mat
     line(images[DartBoardDrawn], dartAreaTriple->meanCorners[DartArea::Outer1], dartAreaDouble->meanCorners[DartArea::Outer1], _whiteColor);
     line(images[DartBoardDrawn], dartAreaTriple->meanCorners[DartArea::Outer2], dartAreaDouble->meanCorners[DartArea::Outer2], _whiteColor);
 
-    line(images[DartBoardDrawn], dartAreaTriple->meanCorners[DartArea::Inner1], dartBoard.outerBullseyeCenter, _whiteColor);
-    line(images[DartBoardDrawn], dartAreaTriple->meanCorners[DartArea::Inner2], dartBoard.outerBullseyeCenter, _whiteColor);
+    line(images[DartBoardDrawn], dartAreaTriple->meanCorners[DartArea::Inner1], dartBoard.singleBullCenter, _whiteColor);
+    line(images[DartBoardDrawn], dartAreaTriple->meanCorners[DartArea::Inner2], dartBoard.singleBullCenter, _whiteColor);
 
-    circle(images[DartBoardDrawn], dartBoard.outerBullseyeCenter, dartBoard.outerBullseyeMeanRadius, Scalar(0, 100, 0), -1);
-    circle(images[DartBoardDrawn], dartBoard.outerBullseyeCenter, dartBoard.innerBullseyeMeanRadius, Scalar(0, 0, 100), -1);
+    circle(images[DartBoardDrawn], dartBoard.singleBullCenter, dartBoard.outerBullseyeMeanRadius, Scalar(0, 100, 0), -1);
+    circle(images[DartBoardDrawn], dartBoard.singleBullCenter, dartBoard.innerBullseyeMeanRadius, Scalar(0, 0, 100), -1);
   }
 
   // DartBoardDrawn2
-  for (int i = 0; i < 10; i++)
+  for (auto i = 0; i < 10; i++)
   {
-    DartArea* dartAreaDouble = dartBoard.doubles[i * 2];
+    auto dartAreaDouble = dartBoard.doubles[i * 2];
 
-    DartArea* clockwiseNeighbour;
-    // If last element, the neighbour is the first
-    clockwiseNeighbour = dartBoard.doubles[(i == 9 ? 0 : i * 2 + 2)];
-
-    DartArea* dartAreaTriple = dartBoard.triples[i * 2];
-
-    // If last element, the neighbour is the first
-    clockwiseNeighbour = dartBoard.triples[(i == 9 ? 0 : i * 2 + 2)];
+    auto dartAreaTriple = dartBoard.triples[i * 2];
 
     line(images[DartBoardDrawn2], dartAreaTriple->meanCorners[DartArea::Outer1], dartAreaDouble->meanCorners[DartArea::Outer1], _whiteColor, 2);
     line(images[DartBoardDrawn2], dartAreaTriple->meanCorners[DartArea::Outer2], dartAreaDouble->meanCorners[DartArea::Outer2], _whiteColor, 2);
 
-    line(images[DartBoardDrawn2], dartAreaTriple->meanCorners[DartArea::Inner1], dartBoard.outerBullseyeCenter, _whiteColor, 2);
-    line(images[DartBoardDrawn2], dartAreaTriple->meanCorners[DartArea::Inner2], dartBoard.outerBullseyeCenter, _whiteColor, 2);
+    line(images[DartBoardDrawn2], dartAreaTriple->meanCorners[DartArea::Inner1], dartBoard.singleBullCenter, _whiteColor, 2);
+    line(images[DartBoardDrawn2], dartAreaTriple->meanCorners[DartArea::Inner2], dartBoard.singleBullCenter, _whiteColor, 2);
 
-    circle(images[DartBoardDrawn2], dartBoard.outerBullseyeCenter, dartBoard.outerBullseyeMeanRadius, Scalar(0, 0, 0), -1);
+    circle(images[DartBoardDrawn2], dartBoard.singleBullCenter, dartBoard.outerBullseyeMeanRadius, Scalar(0, 0, 0), -1);
   }
   dartBoard.drawBoard(images[DartBoardDrawn2], source.size());
 
@@ -519,174 +263,15 @@ void drawDartBoardProgressLine(DartBoard dartBoard, const Mat& source, const Mat
   images[DartBoardOverlay] += images[DartBoardDrawn2];
 
   std::string name = "Dartboard Progress";
-  callBackMatSource = images[DartBoardDrawn2].clone();
+  callBackMatSource = images[DartBoardOverlay].clone();
+  //callBackMatSource = images[DartBoardDrawn2].clone();
   _win.namedWindowResized(name);
   setMouseCallback(name, mouseCallBack);
   _win.switchableImgs(name, images);
 }
 
-#define TESTFUNC 0
-void testFunc()
+void defaultRun()
 {
-  //Mat testWithout = _win.imreadRel("Img3.jpg");
-  //Mat testWith[] = { _win.imreadRel("Img4.jpg"),
-  //_win.imreadRel("Img5.jpg"),
-  //_win.imreadRel("Img6.jpg"), };
-
-  ////create Background Subtractor objects
-  //Ptr<BackgroundSubtractor> pBackSub;
-  //  pBackSub = createBackgroundSubtractorMOG2(500, 16, false);
-  //  //pBackSub = createBackgroundSubtractorKNN();
-
-  //VideoCapture capture(VideoCapture(0));
-  //if (!capture.isOpened()) {
-  //  //error in opening the video input
-  //  cerr << "Unable to open Videocapture" << endl;
-  //  return;
-  //}
-  //Mat frame, fgMask;
-  //bool foundDart = false;
-  //int frameDelay = 30;
-  //bool coolDownStartet = false;
-  //int takeFrames = 0;
-
-  //int areaMax = 0;
-  //vector<vector<Point>> biggestContours;
-  //Mat biggestContourFrame;
-  //Mat biggestContourMask;
-
-  //RNG rng(time(0)); // RNG with seed of current time
-  //while (true) 
-  //{
-  //  capture >> frame;
-  //  if (frame.empty())
-  //    break;
-  //  //update the background model
-  //  pBackSub->apply(frame, fgMask);
-
-  //  if(frameDelay == 0)
-  //  {
-  //    vector<vector<Point>> contours;
-  //    findContours(fgMask, contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
-
-  //    cvtColor(fgMask, fgMask, COLOR_GRAY2BGR);
-
-  //    if(coolDownStartet)
-  //    {
-  //      takeFrames--;
-  //    }
-
-  //    for (int i = 0; i < contours.size(); i++)
-  //    {
-  //      auto area = contourArea(contours[i]);
-  //      if (!coolDownStartet && area > 15) // If length > 15, start the cooldown
-  //      {
-  //        areaMax = 0;
-  //        coolDownStartet = true;
-  //        takeFrames = 20;
-  //        frameDelay = 5; // Delay 5 frames so the dart doesn't get captured while flying
-  //        break;
-  //      }
-
-  //      if (takeFrames > 0 && areaMax < area)
-  //      {
-  //        areaMax = area;
-  //        biggestContours = contours;
-  //        biggestContourFrame = frame.clone();
-  //        biggestContourMask = fgMask.clone();
-  //      }
-  //    }
-  //  }
-  //  else
-  //  {
-  //    frameDelay--;
-  //  }
-
-  //  imshow("FG Mask", fgMask);
-  //  imshow("Frame", frame);
-
-  //  // get the input from the keyboard
-  //  int keyboard = waitKey(30);
-  //  if (keyboard == 'q' || keyboard == 27)
-  //    break;
-
-  //  if(coolDownStartet && takeFrames == 0)
-  //  {
-  //    // Draws the biggest found contours
-  //    Scalar color = Scalar(rng.uniform(50, 256), rng.uniform(0, 256), rng.uniform(0, 256));
-  //    for (int i = 0; i < biggestContours.size(); i++)
-  //    {
-  //      if(contourArea(biggestContours[i]) > 15)
-  //      {
-  //        drawContours(biggestContourFrame, biggestContours, i, color);
-  //      }
-  //    }
-  //    imshow("FG Mask", biggestContourMask);
-  //    imshow("Frame", biggestContourFrame);
-
-  //    waitKey(0);
-
-  //    frameDelay = 30; // Delay of 30 frames so that the algorithm can get a new background image
-  //    pBackSub->apply(frame, fgMask, 1); // Reset background image
-  //    foundDart = false;
-  //    coolDownStartet = false;
-  //  }
-  //}
-
-
-  //for(int i = 0; i < 3; i++)
-  //{
-  //  cv::Mat diffImage;
-  //  cv::absdiff(testWithout, testWith[i], diffImage);
-
-  //  cv::Mat foregroundMask = cv::Mat::zeros(diffImage.rows, diffImage.cols, CV_8UC1);
-
-  //  float threshold = 30.0f;
-  //  float dist;
-
-  //  for (int j = 0; j < diffImage.rows; ++j)
-  //  {
-  //    for (int i = 0; i < diffImage.cols; ++i)
-  //    {
-  //      cv::Vec3b pix = diffImage.at<cv::Vec3b>(j, i);
-
-  //      dist = (pix[0] * pix[0] + pix[1] * pix[1] + pix[2] * pix[2]);
-  //      dist = sqrt(dist);
-
-  //      if (dist > threshold)
-  //      {
-  //        foregroundMask.at<unsigned char>(j, i) = 255;
-  //      }
-  //    }
-  //  }
-
-  //  vector<vector<Point>> contours;
-  //  findContours(foregroundMask, contours, RETR_LIST, CHAIN_APPROX_SIMPLE);
-
-  //  double biggestArea = 0.0f;
-  //  int biggestContourIdx;
-  //  for (int i = 0; i < contours.size(); i++)
-  //  {
-  //    auto area = contourArea(contours[i]);
-
-  //    if (biggestArea < area)
-  //    {
-  //      biggestArea = area;
-  //      biggestContourIdx = i;
-  //    }
-  //  }
-
-  //  drawContours(testWith[i], contours, biggestContourIdx, Scalar(255, 0, 0), 5);
-
-  //  //TODO: See SSIM (bookmarks)
-
-  //  _win.imgshowResized("testWithout", testWithout);
-  //  _win.imgshowResized("testWith", testWith[i]);
-  //  _win.imgshowResized("Diff", foregroundMask);
-
-  //  waitKey(0);
-  //}
-
   enum Images
   {
     Source,
@@ -708,7 +293,7 @@ void testFunc()
   std::list<Mat> testImages;
 
   Mat inputImage;
-  VideoCapture cap = VideoCapture(0);
+  auto cap = VideoCapture(0);
   cap.set(CAP_PROP_XI_FRAMERATE, 1);
   cap.set(CAP_PROP_FRAME_WIDTH, 2592);
   cap.set(CAP_PROP_FRAME_HEIGHT, 1944);
@@ -727,18 +312,18 @@ void testFunc()
   testImages.push_back(_win.imreadRel("image4.jpg"));
   testImages.push_back(_win.imreadRel("image5.jpg"));
 
-  for (const Mat src : testImages)
+  for (const auto src : testImages)
   {
-    bool useHistogramAsLastResort = false;
+    auto useHistogramAsLastResort = false;
 
-    prepareBoard:
+  prepareBoard:
     std::array<Mat, END> images;
 
     _win.imgshowResized(windowNameInput, src);
 
     images[Source] = src;
 
-    if(useHistogramAsLastResort)
+    if (useHistogramAsLastResort)
     {
       Automation::histogramEqualizationColored(images[Source], images[Histogram]);
     }
@@ -747,7 +332,7 @@ void testFunc()
       images[Histogram] = images[Source];
     }
 
-    if(useHistogramAsLastResort)
+    if (useHistogramAsLastResort)
     {
       Automation::colorFilter(images[Histogram], images[MaskRed], images[FilteredRed], Resources::red_1_histogram, Resources::red_2_histogram);
       Automation::colorFilter(images[Histogram], images[MaskGreen], images[FilteredGreen], Resources::green_histogram);
@@ -769,7 +354,7 @@ void testFunc()
     const auto dartAreasRed = DartArea::calculateAreas(contoursRed);
 
     DartBoard dartBoard(dartAreasGreen, dartAreasRed, images[Source]);
-    if(!dartBoard.isReady() && !useHistogramAsLastResort)
+    if (!dartBoard.isReady() && !useHistogramAsLastResort)
     {
       std::cout << "Using histograms as last resort!\n";
       useHistogramAsLastResort = true;
@@ -794,10 +379,10 @@ void testFunc()
 
       goto prepareBoard;
     }
-    else if(!dartBoard.isReady() && useHistogramAsLastResort)
+    else if (!dartBoard.isReady() && useHistogramAsLastResort)
     {
       std::cout << "Error" << std::endl;
-      
+
       return;
     }
 
@@ -806,7 +391,7 @@ void testFunc()
 
     dartBoard.drawBoard(images[FinalBoard], images[Source].size());
 
-    _win.imgshowResized("Histogram", images[Histogram]); 
+    _win.imgshowResized("Histogram", images[Histogram]);
 
     _win.imgshowResized("Mask Red", images[MaskRed]);
     _win.imgshowResized("Mask Green", images[MaskGreen]);
@@ -837,6 +422,107 @@ void testFunc()
   }
 }
 
+void testFunc()
+{
+  //create Background Subtractor objects
+  Ptr<BackgroundSubtractor> pBackSub;
+    pBackSub = createBackgroundSubtractorMOG2(500, 16, false);
+    //pBackSub = createBackgroundSubtractorKNN();
+
+  auto capture(VideoCapture(0));
+  if (!capture.isOpened()) {
+    //error in opening the video input
+    cerr << "Unable to open Videocapture" << endl;
+    return;
+  }
+  Mat frame, fgMask;
+  auto frameDelay = 30;
+  auto coolDownStartet = false;
+  auto takeFrames = 0;
+
+  auto areaMax = 0;
+  vector<vector<Point>> biggestContours;
+  Mat biggestContourFrame;
+  Mat biggestContourMask;
+
+  RNG rng(time(0)); // RNG with seed of current time
+  while (true) 
+  {
+    capture >> frame;
+    if (frame.empty())
+      break;
+    //update the background model
+    pBackSub->apply(frame, fgMask);
+
+    if(frameDelay == 0)
+    {
+      vector<vector<Point>> contours;
+      findContours(fgMask, contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
+
+      cvtColor(fgMask, fgMask, COLOR_GRAY2BGR);
+
+      if(coolDownStartet)
+      {
+        takeFrames--;
+      }
+
+      for (auto i = 0; i < contours.size(); i++)
+      {
+        auto area = contourArea(contours[i]);
+        if (!coolDownStartet && area > 15) // If length > 15, start the cooldown
+        {
+          areaMax = 0;
+          coolDownStartet = true;
+          takeFrames = 20;
+          frameDelay = 5; // Delay 5 frames so the dart doesn't get captured while flying
+          break;
+        }
+
+        if (takeFrames > 0 && areaMax < area)
+        {
+          areaMax = area;
+          biggestContours = contours;
+          biggestContourFrame = frame.clone();
+          biggestContourMask = fgMask.clone();
+        }
+      }
+    }
+    else
+    {
+      frameDelay--;
+    }
+
+    imshow("FG Mask", fgMask);
+    imshow("Frame", frame);
+
+    // get the input from the keyboard
+    auto keyboard = waitKey(30);
+    if (keyboard == 'q' || keyboard == 27)
+      break;
+
+    if(coolDownStartet && takeFrames == 0)
+    {
+      // Draws the biggest found contours
+      auto color = Scalar(rng.uniform(50, 256), rng.uniform(0, 256), rng.uniform(0, 256));
+      for (auto i = 0; i < biggestContours.size(); i++)
+      {
+        if(contourArea(biggestContours[i]) > 15)
+        {
+          drawContours(biggestContourFrame, biggestContours, i, color);
+        }
+      }
+      imshow("FG Mask", biggestContourMask);
+      imshow("Frame", biggestContourFrame);
+
+      waitKey(0);
+
+      frameDelay = 30; // Delay of 30 frames so that the algorithm can get a new background image
+      pBackSub->apply(frame, fgMask, 1); // Reset background image
+      coolDownStartet = false;
+    }
+  }
+}
+
 void reset(string windowNameInput)
 {
   destroyAllWindows();
@@ -848,15 +534,15 @@ int main(int argc, char** argv)
 {
   string homePath = "/home/pi/Desktop/";
 
-  Mat badQualityImage = _win.imreadRel("TestImage5.jpg");
-  Mat hqFinalMask = _win.imreadRel("FinalMask2.jpg");
-  Mat hqColorResult = _win.imreadRel("Result.jpg");
-  Mat hqContours = _win.imreadRel("Contours.jpg");
+  auto badQualityImage = _win.imreadRel("TestImage5.jpg");
+  auto hqFinalMask = _win.imreadRel("FinalMask2.jpg");
+  auto hqColorResult = _win.imreadRel("Result.jpg");
+  auto hqContours = _win.imreadRel("Contours.jpg");
 
   //defInputImage = imread("/home/pi/Desktop/TestImage5.jpg"); // Init inputImage
   defInputImage = _win.imreadRel("TestImage.jpg"); // Init inputImage
   //defInputImage = imread("/home/pi/Desktop/MaskGreen.jpg"); // Init inputImage
-  VideoCapture cap = VideoCapture(0);
+  auto cap = VideoCapture(0);
   cap.set(CAP_PROP_XI_FRAMERATE, 1);
   cap.set(CAP_PROP_FRAME_WIDTH, 2592);
   cap.set(CAP_PROP_FRAME_HEIGHT, 1944);
@@ -870,61 +556,38 @@ int main(int argc, char** argv)
     std::cout << "Couldn't find image, closing!";
     return -1;
   }
-  //reset(windowNameInput);
-  //waitKey(0);
-  //ImageStacker imageStacker("lol", RaspiWidth, RaspiHeight);
-  //imageStacker.addImage(defInputImage);
-  //imageStacker.addImage(badQualityImage);
-  //imageStacker.addImage(hqFinalMask);
-  //imageStacker.addImage(hqColorResult);
-  //imageStacker.addImage(hqContours);
-  //for (int i = 0; i < 5; i++)
-  //{
-  //  imageStacker.addImage(defInputImage);
-  //}
-  //imageStacker.addImage(defInputImage, true);
-  //waitKey(0);
-
-  if (TESTFUNC)
-  {
-    reset(windowNameInput);
-    testFunc();
-    waitKey(0);
-    return 3;
-  }
-  Mat result;
 
   for (;;)
   {
     reset(windowNameInput);
 
-    char ch = waitKey(0);
+    auto ch = waitKey(0);
     Mat result;
     switch (ch)
     {
-    //case 'a':
-    //  Automation::automatedColorTest(defInputImage, Resources::red_1_default, Resources::red_2_default, Resources::green_default);
-    //  waitKey(0);
-    //  break;
-    case 'b':
-
-      //Automation::histogramEqualizationColored(defInputImage, defInputImage);
-      colorTest();
+    case 'a':
+      defaultRun();
       break;
-    //case 'c':
-    //  {
-    //    result = Automation::histogramEqualizationColored(badQualityImage);
-    //    result = Automation::automatedColorTest(result, Resources::red_1_histogram, Resources::red_2_histogram, Resources::green_histogram);
-    //    result = automateErode(result);
-    //    
-    //    waitKey(0);
-    //  }
-    //  break;
-    case 'd':
+    case 'b':
     {
-      cannyTest(hqColorResult);
+      Testing testing(defInputImage);
+      testing.colorFilter();
+      break;
     }
-    break;
+    case 'c':
+    {
+      Mat out;
+      Automation::histogramEqualizationColored(defInputImage, out);
+      Testing testing(out);
+      testing.colorFilter();
+      break;
+    }
+    case 'd':
+      {
+        Testing testing(defInputImage);
+        testing.cannyTest();
+      }
+      break;
     case 't':
       defInputImage = badQualityImage;
       testFunc();

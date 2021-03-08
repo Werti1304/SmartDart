@@ -12,7 +12,7 @@ namespace Resources
   const HSVColorFilter red_2_default(170, 70, 80,
     180, 255, 255);
 
-  const HSVColorFilter green_default(60, 100, 5,
+  const HSVColorFilter green_default(60, 100, 20,
     90, 255, 255);
 
   const HSVColorFilter red_1_histogram(0, 70, 80,
@@ -21,7 +21,7 @@ namespace Resources
   const HSVColorFilter red_2_histogram(170, 70, 80,
     180, 255, 255);
 
-  const HSVColorFilter green_histogram(50, 30, 50,
+  const HSVColorFilter green_histogram(50, 100, 20,
     90, 255, 130);
 };
 

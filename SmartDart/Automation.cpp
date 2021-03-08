@@ -46,6 +46,11 @@ void Automation::erosion(const Mat& src, Mat& out)
 
   Canny(src_gray, out, 50, 50 * 2);
 
+  // TODO Maybe remove and replace in contours with approxPolyDP and replace blur with Gaussianblur here
+  // Connects areas, is important for hit detection
+  const Mat kernel = getStructuringElement(MORPH_ELLIPSE, {5, 5});
+  dilate(out, out, kernel);
+
   //erode(src_gray, eroded_image, Mat());
 
   //out = src_gray - eroded_image;

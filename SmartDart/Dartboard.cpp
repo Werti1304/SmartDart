@@ -99,13 +99,19 @@ DartBoard::DartBoard(std::list<DartArea> greenContours, std::list<DartArea> redC
   }
   triples = sortAreas(innerCandidates.back());
 
-  getBullseye();
+  setBullseye();
 
-  getCorners();
+  setCorners();
 
-  getSortedMeanCorners(doubles);
+  setSortedMeanCorners(doubles);
 
-  getSortedMeanCorners(triples);
+  setSortedMeanCorners(triples);
+
+  setSingles();
+
+  setNames();
+
+  setTitlePoint();
 
   ready = true;
 }
@@ -174,7 +180,6 @@ void DartBoard::filterTheOddOneOut(std::list<DartArea*>& dartBoardRed)
   dartBoardRed = dartBoardTMp;
 }
 
-
 DartAreaArray DartBoard::sortAreas(DartArea* highestYArea)
 {
   DartAreaArray sorted;
@@ -209,7 +214,7 @@ DartAreaArray DartBoard::sortAreas(DartArea* highestYArea)
   return sorted;
 }
 
-void DartBoard::getBullseye()
+void DartBoard::setBullseye()
 {
   const auto centerX = (doubles[AREA_11]->meanPoint.x + doubles[AREA_6]->meanPoint.x) / 2;
   const auto centerY = (doubles[AREA_20]->meanPoint.y + doubles[AREA_3]->meanPoint.y) / 2;
@@ -227,7 +232,7 @@ void DartBoard::getBullseye()
     }
   }
   nearestGreen.red = false;
-  outerBullseye = nearestGreen;
+  singleBull = nearestGreen;
 
   auto nearestRedDistance = INT16_MAX;
   DartArea nearestRed;
@@ -240,50 +245,50 @@ void DartBoard::getBullseye()
       nearestRed = area;
     }
   }
-  innerBullseye = nearestRed;
+  bullseye = nearestRed;
 
   // Get Center of outer bullseye
   auto x = 0;
   auto y = 0;
-  for (const auto pt : outerBullseye.contour)
+  for (const auto pt : singleBull.contour)
   {
     x += pt.x;
     y += pt.y;
   }
-  const size_t outerBullseyeSize = outerBullseye.contour.size();
-  outerBullseyeCenter = cv::Point(x / outerBullseyeSize, y / outerBullseyeSize);
+  const size_t outerBullseyeSize = singleBull.contour.size();
+  singleBullCenter = cv::Point(x / outerBullseyeSize, y / outerBullseyeSize);
 
   // Get Center of inner bullseye
   x = 0;
   y = 0;
-  for (const auto pt : innerBullseye.contour)
+  for (const auto pt : bullseye.contour)
   {
     x += pt.x;
     y += pt.y;
   }
-  const size_t innerBullseyeSize = innerBullseye.contour.size();
-  innerBullseyeCenter = cv::Point(x / innerBullseyeSize, y / innerBullseyeSize);
+  const size_t innerBullseyeSize = bullseye.contour.size();
+  bullseyeCenter = cv::Point(x / innerBullseyeSize, y / innerBullseyeSize);
 
   // Get mean radius of outer bullseye
   int radiusSum = 0;
-  for (const auto pt : outerBullseye.contour)
+  for (const auto pt : singleBull.contour)
   {
-    radiusSum += getDistance(pt, outerBullseyeCenter);
+    radiusSum += getDistance(pt, singleBullCenter);
   }
   outerBullseyeMeanRadius = static_cast<float>(radiusSum) / outerBullseyeSize;
 
   // Get mean radius of inner bullseye
   radiusSum = 0;
-  for (const auto pt : innerBullseye.contour)
+  for (const auto pt : bullseye.contour)
   {
-    radiusSum += getDistance(pt, innerBullseyeCenter);
+    radiusSum += getDistance(pt, bullseyeCenter);
   }
   innerBullseyeMeanRadius = static_cast<float>(radiusSum) / innerBullseyeSize;
 
   // If triples are detected as bullseyes, a simple check could be build in here
 }
 
-void DartBoard::getCorners()
+void DartBoard::setCorners()
 {
   for (auto i = 0; i < 20; i++)
   {
@@ -294,6 +299,7 @@ void DartBoard::getCorners()
     cv::Point ptTmp2;
 
     const cv::Point centerPoint = (tripleArea->meanPoint + doubleArea->meanPoint) / 2;
+    const cv::Point centerPointShiftedToDouble = (tripleArea->meanPoint + 2 * doubleArea->meanPoint) / 3;
 
     auto maxDistanceSig0 = getDistance(tripleArea->significantPoints[0], tripleArea->meanPoint);
     auto maxDistanceSig1 = getDistance(tripleArea->significantPoints[1], tripleArea->meanPoint);
@@ -318,11 +324,6 @@ void DartBoard::getCorners()
     tripleArea->corners[DartArea::Inner1] = ptTmp1;
     tripleArea->corners[DartArea::Inner2] = ptTmp2;
 
-    //// TODO Correct detection problem on problamatic dartboard (probably lies here somewhere)
-    //auto doubleCorners1_n_2 = findPoints(doubleArea->contour,
-    //  std::array<cv::Point, 2>{tripleArea->corners[DartArea::Inner1], tripleArea->corners[DartArea::Inner2]}, false);
-    //doubleArea->corners[DartArea::Outer2] = doubleCorners1_n_2[0];
-    //doubleArea->corners[DartArea::Outer1] = doubleCorners1_n_2[1];
     maxDistanceSig0 = getDistance(doubleArea->significantPoints[0], doubleArea->meanPoint);
     maxDistanceSig1 = getDistance(doubleArea->significantPoints[1], doubleArea->meanPoint);
     maxDist1 = 0, maxDist2 = 0;
@@ -330,13 +331,13 @@ void DartBoard::getCorners()
     // Gets points that are furthest away from centerPoint on both sides (both have to be in a radius opposite to each other)
     for (const auto pt : doubleArea->contour)
     {
-      auto distTmp = getDistance(pt, centerPoint);
+      auto distTmp = getDistance(pt, centerPointShiftedToDouble);
       if (getDistance(pt, doubleArea->significantPoints[0]) < maxDistanceSig0 && maxDist1 < distTmp)
       {
         maxDist1 = distTmp;
         ptTmp1 = pt;
       }
-      distTmp = getDistance(pt, centerPoint);
+      distTmp = getDistance(pt, centerPointShiftedToDouble);
       if (getDistance(pt, doubleArea->significantPoints[1]) < maxDistanceSig1 && maxDist2 < distTmp)
       {
         maxDist2 = distTmp;
@@ -391,7 +392,7 @@ void DartBoard::getCorners()
 
 
 // Innerbullseye needed!
-void DartBoard::getSortedMeanCorners(DartAreaArray areas)
+void DartBoard::setSortedMeanCorners(DartAreaArray areas)
 {
   for (int i = 0; i < 10; i++)
   {
@@ -439,11 +440,69 @@ dartArea->neighbours[1]->corners[idx2] };
       std::array<cv::Point, 2> meanPoints = { (pts[0] + outPts[0]) / 2, (pts[1] + outPts[1]) / 2 };
 
       // Sorts the meanpoints in (anti)clockwise direction
-      auto sortedMeanPoints = sortClockwise(outerBullseyeCenter, meanPoints);
+      auto sortedMeanPoints = sortClockwise(singleBullCenter, meanPoints);
       dartArea->meanCorners[idx1] = sortedMeanPoints[0];
       dartArea->meanCorners[idx2] = sortedMeanPoints[1];
     }
   }
+}
+
+void DartBoard::setSingles()
+{
+  // Looks for hit in white
+  for (auto i = 0; i < 10; i++)
+  {
+    auto areaDouble = doubles[i * 2];
+    auto areaTriple = triples[i * 2];
+
+    auto clockwiseNeighbourDouble = doubles[(i == 9 ? 0 : i * 2 + 2)];
+    auto clockwiseNeighbourTriple = triples[(i == 9 ? 0 : i * 2 + 2)];
+
+    std::vector<cv::Point> pts = {
+      areaDouble->meanCorners[DartArea::Outer1],
+      areaDouble->meanCorners[DartArea::Outer2],
+      areaTriple->meanCorners[DartArea::Outer2],
+      areaTriple->meanCorners[DartArea::Inner2],
+      singleBullCenter,
+      areaTriple->meanCorners[DartArea::Inner1],
+      areaTriple->meanCorners[DartArea::Outer1], };
+
+    DartArea* single = new DartArea(pts, false); 
+    single->name = DartAreaName(i * 2 + 1, DartAreaName::Single);
+    singles[i * 2] = single;
+
+    // Sets outlining points of DartArea
+    pts = {
+    areaDouble->meanCorners[DartArea::Outer1],
+    clockwiseNeighbourDouble->meanCorners[DartArea::Outer2],
+    clockwiseNeighbourTriple->meanCorners[DartArea::Outer2],
+    clockwiseNeighbourTriple->meanCorners[DartArea::Inner2],
+    singleBullCenter,
+    areaTriple->meanCorners[DartArea::Inner1],
+    areaTriple->meanCorners[DartArea::Outer1] };
+
+    single = new DartArea(pts, false);
+    single->name = DartAreaName(i * 2 + 2, DartAreaName::Single);
+    singles[i * 2 + 1] = single;
+  }
+}
+
+void DartBoard::setNames()
+{
+  for (int i = 0; i < 20; i++)
+  {
+    triples[i]->name = DartAreaName(i + 1, DartAreaName::Triple);
+
+    doubles[i]->name = DartAreaName(i + 1, DartAreaName::Double);
+  }
+
+  bullseye.name = DartAreaName(1, DartAreaName::Bullseye);
+  singleBull.name = DartAreaName(1, DartAreaName::SingleBull);
+}
+
+void DartBoard::setTitlePoint()
+{
+  titlePoint = cv::Point(singleBullCenter.x, singleBullCenter.y - 1.25 * doubles[0]->meanPoint.y);
 }
 
 void DartBoard::drawBoard(cv::Mat& img, cv::Size sizeReference)
@@ -465,12 +524,10 @@ void DartBoard::drawBoard(cv::Mat& img, cv::Size sizeReference)
     contoursBuff.push_back(dartArea->contour);
   }
 
-  // TODO simples go here (maybe, color is very interesting topic)
-
-  if (!outerBullseye.contour.empty() && !innerBullseye.contour.empty())
+  if (!singleBull.contour.empty() && !bullseye.contour.empty())
   {
-    contoursBuff.push_back(outerBullseye.contour);
-    contoursBuff.push_back(innerBullseye.contour);
+    contoursBuff.push_back(singleBull.contour);
+    contoursBuff.push_back(bullseye.contour);
   }
 
   for (size_t i = 0; i < contoursBuff.size(); i++)
@@ -479,13 +536,47 @@ void DartBoard::drawBoard(cv::Mat& img, cv::Size sizeReference)
   }
 }
 
-void DartBoard::markAreas(cv::Mat& src, DartAreaArray dartAreas, int radius = 5, const cv::Scalar& color = cv::Scalar(0, 255, 0), int thickness = 5)
+DartArea* DartBoard::detectHit(const cv::Point point)
 {
-  int i = 0;
-  for (auto area : dartAreas)
+  // Looks for hit in triples
+  for (auto area : triples)
   {
-    area->draw(src, color, true, radius, thickness);
+    if (pointPolygonTest(area->contour, point, false) >= 0)
+    {
+      return area;
+    }
   }
+
+  // Looks for hit in doubles
+  for (auto area : doubles)
+  {
+    if (pointPolygonTest(area->contour, point, false) >= 0)
+    {
+      return area;
+    }
+  }
+
+  // Looks for hit in bullseye
+  if (pointPolygonTest(bullseye.contour, point, false) >= 0)
+  {
+    return &bullseye;
+  }
+  if (pointPolygonTest(singleBull.contour, point, false) >= 0)
+  {
+    return &singleBull;
+  }
+
+  // Looks for hit in singles
+  // Has to be checked last because the singles are also in the area of the doubles / triples
+  for (auto area : singles)
+  {
+    if (pointPolygonTest(area->contour, point, false) >= 0)
+    {
+      return area;
+    }
+  }
+  
+  return nullptr;
 }
 
 void DartBoard::printText(cv::Mat& img, DartAreaArray areas, const std::string prefix, int fontFace, int fontScale, const cv::Scalar color, int thickness)
