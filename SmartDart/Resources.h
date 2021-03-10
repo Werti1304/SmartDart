@@ -23,6 +23,15 @@ namespace Resources
 
   const HSVColorFilter green_histogram(50, 100, 20,
     90, 255, 130);
+
+  const HSVColorFilter red_1_longexp(0, 70, 80,
+    5, 255, 255);
+
+  const HSVColorFilter red_2_longexp(170, 70, 80,
+    180, 255, 255);
+
+  const HSVColorFilter green_longexp(50, 100, 20,
+    90, 255, 130);
 };
 
 #define RaspiWidth 1280

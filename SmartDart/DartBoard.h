@@ -23,8 +23,8 @@ public:
   DartArea singleBull;
   cv::Point singleBullCenter;
   cv::Point bullseyeCenter;
-  float outerBullseyeMeanRadius;
-  float innerBullseyeMeanRadius;
+  float singleBullMeanRadius;
+  float bullseyeMeanRadius;
 
   cv::Point titlePoint;
 

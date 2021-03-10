@@ -10,6 +10,7 @@
 #include "WindowHelper.h"
 #include "Resources.h"
 #include "Testing.h"
+#include <raspicam/raspicam_cv.h>
 
 using namespace cv;
 using namespace std;
@@ -238,8 +239,8 @@ void drawDartBoardProgressLine(DartBoard dartBoard, const Mat& source, const Mat
     line(images[DartBoardDrawn], dartAreaTriple->meanCorners[DartArea::Inner1], dartBoard.singleBullCenter, _whiteColor);
     line(images[DartBoardDrawn], dartAreaTriple->meanCorners[DartArea::Inner2], dartBoard.singleBullCenter, _whiteColor);
 
-    circle(images[DartBoardDrawn], dartBoard.singleBullCenter, dartBoard.outerBullseyeMeanRadius, Scalar(0, 100, 0), -1);
-    circle(images[DartBoardDrawn], dartBoard.singleBullCenter, dartBoard.innerBullseyeMeanRadius, Scalar(0, 0, 100), -1);
+    circle(images[DartBoardDrawn], dartBoard.singleBullCenter, dartBoard.singleBullMeanRadius, Scalar(0, 100, 0), -1);
+    circle(images[DartBoardDrawn], dartBoard.singleBullCenter, dartBoard.bullseyeMeanRadius, Scalar(0, 0, 100), -1);
   }
 
   // DartBoardDrawn2
@@ -255,7 +256,7 @@ void drawDartBoardProgressLine(DartBoard dartBoard, const Mat& source, const Mat
     line(images[DartBoardDrawn2], dartAreaTriple->meanCorners[DartArea::Inner1], dartBoard.singleBullCenter, _whiteColor, 2);
     line(images[DartBoardDrawn2], dartAreaTriple->meanCorners[DartArea::Inner2], dartBoard.singleBullCenter, _whiteColor, 2);
 
-    circle(images[DartBoardDrawn2], dartBoard.singleBullCenter, dartBoard.outerBullseyeMeanRadius, Scalar(0, 0, 0), -1);
+    circle(images[DartBoardDrawn2], dartBoard.singleBullCenter, dartBoard.singleBullMeanRadius, Scalar(0, 0, 0), -1);
   }
   dartBoard.drawBoard(images[DartBoardDrawn2], source.size());
 
@@ -292,16 +293,17 @@ void defaultRun()
 
   std::list<Mat> testImages;
 
-  Mat inputImage;
-  auto cap = VideoCapture(0);
-  cap.set(CAP_PROP_XI_FRAMERATE, 1);
-  cap.set(CAP_PROP_FRAME_WIDTH, 2592);
-  cap.set(CAP_PROP_FRAME_HEIGHT, 1944);
-  cap.set(CAP_PROP_AUTO_EXPOSURE, 0.25);
-  cap.read(inputImage);
-  cvtColor(inputImage, inputImage, COLOR_RGB2BGR); // Needed for VideoCapture b/c OpenCV is dumb
+  //Mat inputImage;
+  //auto cap = VideoCapture(0);
+  //cap.set(CAP_PROP_XI_FRAMERATE, 1);
+  //cap.set(CAP_PROP_FRAME_WIDTH, 2592);
+  //cap.set(CAP_PROP_FRAME_HEIGHT, 1944);
+  //cap.set(CAP_PROP_AUTO_EXPOSURE, 0.25);
+  //cap.read(inputImage);
+  //cvtColor(inputImage, inputImage, COLOR_RGB2BGR); // Needed for VideoCapture b/c OpenCV is dumb
 
-  testImages.push_back(inputImage);
+  testImages.push_back(defInputImage);
+  //testImages.push_back(inputImage);
   testImages.push_back(_win.imreadRel("Img1.jpg"));
   testImages.push_back(_win.imreadRel("TestImage.jpg"));
   testImages.push_back(_win.imreadRel("TestImage5.jpg"));
@@ -353,44 +355,6 @@ void defaultRun()
     const auto dartAreasGreen = DartArea::calculateAreas(contoursGreen);
     const auto dartAreasRed = DartArea::calculateAreas(contoursRed);
 
-    DartBoard dartBoard(dartAreasGreen, dartAreasRed, images[Source]);
-    if (!dartBoard.isReady() && !useHistogramAsLastResort)
-    {
-      std::cout << "Using histograms as last resort!\n";
-      useHistogramAsLastResort = true;
-
-      _win.imgshowResized("Histogram", images[Histogram]);
-
-      _win.imgshowResized("Mask Red", images[MaskRed]);
-      _win.imgshowResized("Mask Green", images[MaskGreen]);
-
-      _win.imgshowResized("Filtered Red", images[FilteredRed]);
-      _win.imgshowResized("Filtered Green", images[FilteredGreen]);
-
-      _win.imgshowResized("Erosion Red", images[ErosionRed]);
-      _win.imgshowResized("Erosion Green", images[ErosionGreen]);
-
-      _win.imgshowResized("Drawing Red", images[DrawingRed]);
-      _win.imgshowResized("Drawing Green", images[DrawingGreen]);
-
-      _win.imgshowResized("Contoured Result", images[DrawingResult]);
-
-      waitKey(0);
-
-      goto prepareBoard;
-    }
-    else if (!dartBoard.isReady() && useHistogramAsLastResort)
-    {
-      std::cout << "Error" << std::endl;
-
-      return;
-    }
-
-    //DartBoard::markAreas(image[DrawingResult], dartBoard.doubles, 3, cv::Scalar(0, 0, 255), 3);
-    //DartBoard::markAreas(image[DrawingResult], dartBoard.triples, 3, cv::Scalar(0, 0, 255), 3);
-
-    dartBoard.drawBoard(images[FinalBoard], images[Source].size());
-
     _win.imgshowResized("Histogram", images[Histogram]);
 
     _win.imgshowResized("Mask Red", images[MaskRed]);
@@ -406,6 +370,25 @@ void defaultRun()
     _win.imgshowResized("Drawing Green", images[DrawingGreen]);
 
     _win.imgshowResized("Contoured Result", images[DrawingResult]);
+
+    DartBoard dartBoard(dartAreasGreen, dartAreasRed, images[Source]);
+    if (!dartBoard.isReady() && !useHistogramAsLastResort)
+    {
+      std::cout << "Using histograms as last resort!\n";
+      useHistogramAsLastResort = true;
+      waitKey(0);
+
+      goto prepareBoard;
+    }
+    else if (!dartBoard.isReady() && useHistogramAsLastResort)
+    {
+      std::cout << "Error" << std::endl;
+      waitKey(0);
+
+      return;
+    }
+
+    dartBoard.drawBoard(images[FinalBoard], images[Source].size());
 
     images[FinalBoardOverlay] = images[Source] + images[FinalBoard];
     _win.imgshowResized("Final Dartboard", images[FinalBoardOverlay]);
@@ -532,6 +515,8 @@ void reset(string windowNameInput)
 
 int main(int argc, char** argv)
 {
+  std::cout << "Version: " << CV_MAJOR_VERSION << "." << CV_MINOR_VERSION << endl;
+
   string homePath = "/home/pi/Desktop/";
 
   auto badQualityImage = _win.imreadRel("TestImage5.jpg");
@@ -542,14 +527,119 @@ int main(int argc, char** argv)
   //defInputImage = imread("/home/pi/Desktop/TestImage5.jpg"); // Init inputImage
   defInputImage = _win.imreadRel("TestImage.jpg"); // Init inputImage
   //defInputImage = imread("/home/pi/Desktop/MaskGreen.jpg"); // Init inputImage
-  auto cap = VideoCapture(0);
-  cap.set(CAP_PROP_XI_FRAMERATE, 1);
-  cap.set(CAP_PROP_FRAME_WIDTH, 2592);
-  cap.set(CAP_PROP_FRAME_HEIGHT, 1944);
-  cap.set(CAP_PROP_AUTO_EXPOSURE, 0.25);
-  cap.read(defInputImage);
-  cvtColor(defInputImage, defInputImage, COLOR_RGB2BGR); // Needed for VideoCapture b/c OpenCV is dumb
-  cap.release();
+
+  //time_t timer_begin, timer_end;
+  //raspicam::RaspiCam_Cv Camera;
+
+  //cv::Mat image;
+  //int nCount = 30;
+  ////set camera params
+  ////Camera.set(CAP_PROP_FRAME_WIDTH, 2592);
+  ////Camera.set(CAP_PROP_FRAME_HEIGHT, 1944);
+  //Camera.set(CAP_PROP_FORMAT, CV_8UC3);
+  ////Camera.set(CAP_PROP_EXPOSURE, 100);
+  //Camera.set(CAP_PROP_FPS, 3);
+  //Camera.setFormat(raspicam::RASPICAM_FORMAT_BGR);
+  //Camera.setExposure(raspicam::RASPICAM_EXPOSURE_AUTO);
+  //Camera.setExposureCompensation(5);
+  ////Camera.setAWB(raspicam::RASPICAM_AWB_OFF);
+  //Camera.setContrast(10);
+  //Camera.setSaturation(10);
+  ////Camera.setExposureCompensation(raspicam::RASPICAM_EXPOSURE_AUTO);
+  //
+  ////Open camera
+  //cout << "Opening Camera..." << endl;
+  //if (!Camera.open()) { cerr << "Error opening the camera" << endl; return -1; }
+  ////Start capture
+  //cout << "Capturing " << nCount << " frames ...." << endl;
+  //time(&timer_begin);
+  //int _frameCount = 0;
+  //Mat _exposed;
+  //double alpha = 1.0 / nCount;
+  //float brightFactor = 1.5;
+
+  //for (int i = 0; i < nCount; i++) {
+  //  Camera.grab();
+  //  Camera.retrieve(image);
+  //  if (i % 5 == 0)  cout << "\r captured " << i << " images" << std::flush;
+
+  //  image.convertTo(image, CV_32FC3, 1 / 255.0);
+  //  if (_frameCount == 0) {
+  //    _exposed = image.clone();
+  //    addWeighted(_exposed, 0.0, image, static_cast<double>(alpha * brightFactor), 0.0, _exposed);
+  //  }
+  //  else {
+  //    addWeighted(_exposed, 1.0, image, static_cast<double>(alpha * brightFactor), 0.0, _exposed);
+  //  }
+  //  _frameCount++;
+  //}
+
+  //cout << "Stop camera..." << endl;
+  //Camera.release();
+  ////show time statistics
+  //time(&timer_end); /* get current time; same as: timer = time(NULL)  */
+  //double secondsElapsed = difftime(timer_end, timer_begin);
+  //cout << secondsElapsed << " seconds for " << nCount << "  frames : FPS = " << (float)((float)(nCount) / secondsElapsed) << endl;
+  ////save image 
+  //cv::imwrite("raspicam_cv_image.jpg", _exposed);
+  //cout << "Image saved at raspicam_cv_image.jpg" << endl;
+  ////cvtColor(_exposed, _exposed, COLOR_RGB2BGR);
+  ////cvtColor(image, image, COLOR_RGB2BGR);
+  //_win.imgshowResized("Exposure Input", _exposed);
+  //_win.imgshowResized("Image", image);
+
+  //_exposed.convertTo(defInputImage, CV_8UC3, 255);
+
+  int returnCode = system("raspistill -o input.jpg");
+
+  if(returnCode != 0)
+  {
+    std::cerr << "Raspistill return code was " << returnCode << ".";
+    return -1;
+  }
+
+  Mat input = imread("input.jpg");
+  _win.imgshowResized("Input", input);
+
+  defInputImage = input;
+
+  //auto cap = VideoCapture(0);
+  ////cap.set(CAP_PROP_XI_FRAMERATE, 1);
+  ////cap.set(CAP_PROP_FRAME_WIDTH, 2592);
+  ////cap.set(CAP_PROP_FRAME_HEIGHT, 1944);
+  //cap.set(CAP_PROP_FRAME_WIDTH, 2592);
+  //cap.set(CAP_PROP_FRAME_HEIGHT, 1944);
+  ////cap.set(CAP_PROP_EXPOSURE, 5000);
+  //cap.set(CAP_PROP_AUTO_EXPOSURE, 0.75);
+  //cap.read(defInputImage);
+
+  //int exposureFrames = 30;
+  //int _frameCount = 0;
+  //Mat image;
+  //Mat _exposed;
+  //double alpha = 1.0 / exposureFrames;
+  //int brightFactor = 2;
+  //for(int i = 0; i < exposureFrames; i++)
+  //{
+  //  cap.read(image);
+  //  //image.convertTo(image, CV_32FC3, 1 / 255.0);
+  //  if (_frameCount == 0) {
+  //    _exposed = image.clone();
+  //    addWeighted(_exposed, 0.0, image, alpha * brightFactor, 0.0, _exposed);
+  //  }
+  //  else {
+  //    addWeighted(_exposed, 1.0, image, alpha * brightFactor, 0.0, _exposed);
+  //  }
+  //  _frameCount++;
+  //}
+  //cvtColor(_exposed, _exposed, COLOR_RGB2BGR);
+  //cvtColor(defInputImage, defInputImage, COLOR_RGB2BGR);
+  //_win.imgshowResized("Input", defInputImage);
+  //_win.imgshowResized("Exposure Input", _exposed);
+  //waitKey(0);
+  ////cvtColor(defInputImage, defInputImage, COLOR_RGB2BGR); // Needed for VideoCapture b/c OpenCV is dumb
+
+  //defInputImage = _exposed;
 
   if(defInputImage.data == nullptr)
   {

@@ -275,7 +275,7 @@ void DartBoard::setBullseye()
   {
     radiusSum += getDistance(pt, singleBullCenter);
   }
-  outerBullseyeMeanRadius = static_cast<float>(radiusSum) / outerBullseyeSize;
+  singleBullMeanRadius = static_cast<float>(radiusSum) / outerBullseyeSize;
 
   // Get mean radius of inner bullseye
   radiusSum = 0;
@@ -283,7 +283,7 @@ void DartBoard::setBullseye()
   {
     radiusSum += getDistance(pt, bullseyeCenter);
   }
-  innerBullseyeMeanRadius = static_cast<float>(radiusSum) / innerBullseyeSize;
+  bullseyeMeanRadius = static_cast<float>(radiusSum) / innerBullseyeSize;
 
   // If triples are detected as bullseyes, a simple check could be build in here
 }
