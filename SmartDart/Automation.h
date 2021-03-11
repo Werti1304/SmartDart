@@ -10,7 +10,7 @@ namespace Automation
 {
   void histogramEqualizationColored(const Mat& src, Mat& out);
   void erosion(const Mat& src, Mat& out);
-  std::vector<std::vector<Point>> contours(const Mat& src, Mat& out, bool draw = true, int minPerimeter = 30);
+  std::vector<std::vector<Point>> contours(const Mat& src, Mat& out, bool draw = true, int minPerimeter = 50);
 
   template<typename ...ColorFiltersT>
   void colorFilter(const Mat& src, Mat& outMask, Mat& outFiltered, ColorFiltersT... colorFiltersParam);

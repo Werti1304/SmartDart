@@ -24,6 +24,12 @@ DartBoard::DartBoard(std::list<DartArea> greenContours, std::list<DartArea> redC
     }
   }
 
+  //if (dartBoardRed.size() == 21)
+  //{
+  //  std::cout << "Removing last red area (Probably the 'Winmau' text on top)\n";
+  //  dartBoardRed.remove(dartBoardRed.back());
+  //}
+
   for (DartArea* redArea : dartBoardRed)
   {
     redArea->red = true;
@@ -47,6 +53,25 @@ DartBoard::DartBoard(std::list<DartArea> greenContours, std::list<DartArea> redC
   {
     if (greenArea->neighbours[0] == nullptr || greenArea->neighbours[1] == nullptr)
     {
+      cv::Mat img = refImage.clone();
+
+      cv::circle(img, greenArea->meanPoint, 5, _whiteColor, 3);
+
+      if (greenArea->neighbours[0])
+      {
+        std::cout << "Has neighbours[0]\n";
+        cv::circle(img, greenArea->neighbours[0]->meanPoint, 5, _redColor, 3);
+      }
+      if (greenArea->neighbours[1])
+      {
+        std::cout << "Has neighbours[1]\n";
+        cv::circle(img, greenArea->neighbours[1]->meanPoint, 5, _redColor, 3);
+      }
+
+      _win.imgshowResized("Debug Image", img);
+      cv::waitKey(0);
+      img = refImage.clone();
+
       std::cout << "Something went wrong with the green areas\n";
       return;
     }
@@ -61,16 +86,28 @@ DartBoard::DartBoard(std::list<DartArea> greenContours, std::list<DartArea> redC
     }
   }
 
-  if (dartBoardRed.size() > 20)
+  if(dartBoardRed.size() > 20)
   {
     filterTheOddOneOut(dartBoardRed);
 
     if (dartBoardRed.size() != 20)
     {
+      cv::Mat img = refImage.clone();
       std::cout << "Couldn't properly generate red part of darboard, should have 20 but has " << dartBoardRed.size() << " areas!" << std::endl;
+      for (auto red : dartBoardRed)
+      {
+        cv::circle(img, red->meanPoint, 5, _whiteColor, 3);
+        cv::circle(img, red->neighbours[0]->meanPoint, 5, _greenColor, 3);
+        cv::circle(img, red->neighbours[1]->meanPoint, 5, _greenColor, 3);
+
+        _win.imgshowResized("Debug Image", img);
+        cv::waitKey(0);
+        img = refImage.clone();
+      }
       return;
     }
   }
+
   if (dartBoardGreen.size() > 20)
   {
     filterTheOddOneOut(dartBoardGreen);
@@ -111,7 +148,7 @@ DartBoard::DartBoard(std::list<DartArea> greenContours, std::list<DartArea> redC
 
   setNames();
 
-  setTitlePoint();
+  setExtremePoints();
 
   ready = true;
 }
@@ -158,11 +195,11 @@ void DartBoard::checkNeighbour(DartArea& area1, DartArea& area2, const int idxAr
   }
 }
 
-void DartBoard::filterTheOddOneOut(std::list<DartArea*>& dartBoardRed)
+void DartBoard::filterTheOddOneOut(std::list<DartArea*>& dartAreas)
 {
   std::list<DartArea*> dartBoardTMp;
 
-  for (DartArea* area : dartBoardRed)
+  for (DartArea* area : dartAreas)
   {
     bool add = true;
     for (DartArea* areaPtr : area->neighbours)
@@ -177,7 +214,7 @@ void DartBoard::filterTheOddOneOut(std::list<DartArea*>& dartBoardRed)
       dartBoardTMp.push_back(area);
     }
   }
-  dartBoardRed = dartBoardTMp;
+  dartAreas = dartBoardTMp;
 }
 
 DartAreaArray DartBoard::sortAreas(DartArea* highestYArea)
@@ -437,7 +474,7 @@ dartArea->neighbours[1]->corners[idx2] };
       //auto out = findPoints(neighbourPts, pts, true);
 
       // Calculates mean of the 2 points that have 2 points next to each other
-      std::array<cv::Point, 2> meanPoints = { (pts[0] + outPts[0]) / 2, (pts[1] + outPts[1]) / 2 };
+      const std::array<cv::Point, 2> meanPoints = { (pts[0] + outPts[0]) / 2, (pts[1] + outPts[1]) / 2 };
 
       // Sorts the meanpoints in (anti)clockwise direction
       auto sortedMeanPoints = sortClockwise(singleBullCenter, meanPoints);
@@ -500,9 +537,18 @@ void DartBoard::setNames()
   singleBull.name = DartAreaName(1, DartAreaName::SingleBull);
 }
 
-void DartBoard::setTitlePoint()
+void DartBoard::setExtremePoints()
 {
-  titlePoint = cv::Point(singleBullCenter.x, singleBullCenter.y - 1.25 * doubles[0]->meanPoint.y);
+  const auto centerX = singleBullCenter.x;
+  const auto centerY = singleBullCenter.y;
+  const auto height = doubles[AREA_20]->meanPoint.y - centerY;
+  const auto width = doubles[AREA_6]->meanPoint.x - centerX;
+  const auto factor = 1.25f;
+
+  extremePoints[0] = cv::Point(centerX, centerY + factor * height);
+  extremePoints[1] = cv::Point(centerX + factor * width, centerY );
+  extremePoints[2] = cv::Point(centerX, centerY - factor * height);
+  extremePoints[3] = cv::Point(centerX - factor * width, centerY);
 }
 
 void DartBoard::drawBoard(cv::Mat& img, cv::Size sizeReference)
@@ -510,6 +556,11 @@ void DartBoard::drawBoard(cv::Mat& img, cv::Size sizeReference)
   if (img.empty())
   {
     img = cv::Mat::zeros(sizeReference, CV_8UC3);
+  }
+
+  for(auto single : singles)
+  {
+    single->draw(img, _whiteColor);
   }
 
   // Temporary contours safe

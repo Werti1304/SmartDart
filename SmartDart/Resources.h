@@ -6,22 +6,22 @@
 
 namespace Resources
 {
-  const HSVColorFilter red_1_default(0, 110, 80,
+  const HSVColorFilter red_1_default(0, 110, 40,
     5, 255, 255);
 
-  const HSVColorFilter red_2_default(170, 70, 80,
+  const HSVColorFilter red_2_default(170, 70, 60,
     180, 255, 255);
 
   const HSVColorFilter green_default(60, 100, 20,
     90, 255, 255);
 
-  const HSVColorFilter red_1_histogram(0, 70, 80,
-    5, 255, 255);
+  const HSVColorFilter red_1_histogram(0, 70, 40,
+    10, 255, 255);
 
-  const HSVColorFilter red_2_histogram(170, 70, 80,
+  const HSVColorFilter red_2_histogram(170, 70, 60,
     180, 255, 255);
 
-  const HSVColorFilter green_histogram(50, 100, 20,
+  const HSVColorFilter green_histogram(50, 50, 20,
     90, 255, 130);
 
   const HSVColorFilter red_1_longexp(0, 70, 80,

@@ -26,7 +26,8 @@ public:
   float singleBullMeanRadius;
   float bullseyeMeanRadius;
 
-  cv::Point titlePoint;
+  // from 0 to 3: Top-Right-Bottom-Left
+  cv::Point extremePoints[4];
 
   // Are only here so we save 'em somewhere
   std::list<DartArea> greenContours{};
@@ -38,7 +39,7 @@ private:
   // Basic filtering to get to 2x20 areas
   void checkNeighbour(DartArea& area1, DartArea& area2, int idxArea1, int idxArea2, int maxDistance);
   bool getNeighbours(DartArea& areaCmp, std::list<DartArea>& areaList);
-  static void filterTheOddOneOut(std::list<DartArea*>& dartBoardRed);
+  static void filterTheOddOneOut(std::list<DartArea*>& dartAreas);
 
   // Advanced filtering
   // Have to be called in chronological order
@@ -48,5 +49,5 @@ private:
   void setSortedMeanCorners(DartAreaArray areas);
   void setSingles();
   void setNames();
-  void setTitlePoint();
+  void setExtremePoints();
 };

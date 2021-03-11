@@ -45,12 +45,25 @@ void Automation::erosion(const Mat& src, Mat& out)
   //blur(src_gray, src_gray, Size(3, 3));
   GaussianBlur(src_gray, src_gray, Size(5, 5), 0);
 
-  Canny(src_gray, out, 50, 50 * 2);
+  //Canny(src_gray, out, 40, 40 * 2);
+
+  erode(src_gray, eroded_image, Mat());
+
+  out = src_gray - eroded_image;
+
+  threshold(out, out, 1, 255, THRESH_BINARY);
+
+  //Canny(src_gray, out, 40, 40 * 2);
+
+  cv::Mat structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5));
+  cv::morphologyEx(src_gray, src_gray, cv::MORPH_CLOSE, structuringElement);
 
   // TODO Maybe remove and replace in contours with approxPolyDP and replace blur with Gaussianblur here
   // Connects areas, is important for hit detection
   //const Mat kernel = getStructuringElement(MORPH_ELLIPSE, {5, 5});
   //dilate(out, out, kernel);
+
+
 
   //erode(src_gray, eroded_image, Mat());
 
