@@ -10,211 +10,188 @@ using namespace PointHelper;
 DartBoard::DartBoard(std::list<DartArea> greenContours, std::list<DartArea> redContours, const cv::Mat& refImage)
   : greenContours(greenContours), redContours(redContours)
 {
-  std::list<DartArea*> dartBoardRed;
-  std::list<DartArea*> dartBoardGreen;
+  std::list<DartArea*> dartBoardOuterRed;
+  std::list<DartArea*> dartBoardOuterGreen;
+  std::list<DartArea*> dartBoardInnerRed;
+  std::list<DartArea*> dartBoardInnerGreen;
 
-  for (DartArea& redArea : this->redContours)
+  const bool succeeded = getRedAndGreens(dartBoardOuterRed, dartBoardOuterGreen, dartBoardInnerRed, dartBoardInnerGreen);
+
+  if(!succeeded)
   {
-    const bool gotBothNeighbours = getNeighbours(redArea, this->greenContours);
-
-    // Confirms that the red area has neighbours that are not the same
-    if (gotBothNeighbours && redArea.neighbours[0] != redArea.neighbours[1])
-    {
-      dartBoardRed.push_back(&redArea);
-    }
-  }
-
-  //if (dartBoardRed.size() == 21)
-  //{
-  //  std::cout << "Removing last red area (Probably the 'Winmau' text on top)\n";
-  //  dartBoardRed.remove(dartBoardRed.back());
-  //}
-
-  for (DartArea* redArea : dartBoardRed)
-  {
-    redArea->red = true;
-    // Adds green contours to list if they're not already in it
-    for (DartArea* greenNeighbour : redArea->neighbours)
-    {
-      greenNeighbour->red = false;
-      if (std::find(dartBoardGreen.begin(), dartBoardGreen.end(), greenNeighbour) != dartBoardGreen.end())
-      {
-        greenNeighbour->neighbours[1] = redArea;
-      }
-      else
-      {
-        greenNeighbour->neighbours[0] = redArea;
-        dartBoardGreen.push_back(greenNeighbour);
-      }
-    }
-  }
-
-  for (DartArea* greenArea : dartBoardGreen)
-  {
-    if (greenArea->neighbours[0] == nullptr || greenArea->neighbours[1] == nullptr)
-    {
-      cv::Mat img = refImage.clone();
-
-      cv::circle(img, greenArea->meanPoint, 5, _whiteColor, 3);
-
-      if (greenArea->neighbours[0])
-      {
-        std::cout << "Has neighbours[0]\n";
-        cv::circle(img, greenArea->neighbours[0]->meanPoint, 5, _redColor, 3);
-      }
-      if (greenArea->neighbours[1])
-      {
-        std::cout << "Has neighbours[1]\n";
-        cv::circle(img, greenArea->neighbours[1]->meanPoint, 5, _redColor, 3);
-      }
-
-      _win.imgshowResized("Debug Image", img);
-      cv::waitKey(0);
-      img = refImage.clone();
-
-      std::cout << "Something went wrong with the green areas\n";
-      return;
-    }
-  }
-
-  for (DartArea* redArea : dartBoardRed)
-  {
-    if (redArea->neighbours[0] == nullptr || redArea->neighbours[1] == nullptr)
-    {
-      std::cout << "Something went wrong with the red areas\n";
-      return;
-    }
-  }
-
-  if(dartBoardRed.size() > 20)
-  {
-    filterTheOddOneOut(dartBoardRed);
-
-    if (dartBoardRed.size() != 20)
-    {
-      cv::Mat img = refImage.clone();
-      std::cout << "Couldn't properly generate red part of darboard, should have 20 but has " << dartBoardRed.size() << " areas!" << std::endl;
-      for (auto red : dartBoardRed)
-      {
-        cv::circle(img, red->meanPoint, 5, _whiteColor, 3);
-        cv::circle(img, red->neighbours[0]->meanPoint, 5, _greenColor, 3);
-        cv::circle(img, red->neighbours[1]->meanPoint, 5, _greenColor, 3);
-
-        _win.imgshowResized("Debug Image", img);
-        cv::waitKey(0);
-        img = refImage.clone();
-      }
-      return;
-    }
-  }
-
-  if (dartBoardGreen.size() > 20)
-  {
-    filterTheOddOneOut(dartBoardGreen);
-
-    if (dartBoardGreen.size() != 20)
-    {
-      std::cout << "Couldn't properly generate green part of darboard, should have 20 but has " << dartBoardGreen.size() << " areas!" << std::endl;
-      return;
-    }
-  }
-  if (dartBoardRed.size() < 20 || dartBoardGreen.size() < 20)
-  {
-    std::cout << "Couldn't properly generate darboard, should have 40 but has " << dartBoardRed.size() + dartBoardRed.size() << " areas!" << std::endl;
+    std::cerr << "Couldn't get red/greens!\n";
     return;
   }
 
+  const auto outerArea = DartArea::getHighestYArea(dartBoardOuterRed);
+  const auto innerArea = DartArea::getHighestYArea(dartBoardInnerRed);
+
   // Sort to doubles / triples
-  doubles = sortAreas(dartBoardRed.back());
-  std::list<DartArea*> innerCandidates;
-  for (DartArea* dartArea : dartBoardRed)
-  {
-    if (!(std::find(doubles.begin(), doubles.end(), dartArea) != doubles.end()))
-    {
-      innerCandidates.push_back(dartArea);
-    }
-  }
-  triples = sortAreas(innerCandidates.back());
+  doubles = sortAreas(outerArea);
+  triples = sortAreas(innerArea);
 
   setBullseye();
 
   setCorners();
 
   setSortedMeanCorners(doubles);
-
   setSortedMeanCorners(triples);
 
   setSingles();
 
   setNames();
 
-  setExtremePoints();
+  setRect();
 
   ready = true;
 }
 
-bool DartBoard::getNeighbours(DartArea& areaCmp, std::list<DartArea>& areaList)
+bool DartBoard::getRedAndGreens(std::list<DartArea*>& dartAreasOuterRed, std::list<DartArea*>& dartAreasOuterGreen,
+                                std::list<DartArea*>& dartAreasInnerRed, std::list<DartArea*>& dartAreasInnerGreen)
 {
-  const int maxDistance0 = getDistance(areaCmp.significantPoints[0], areaCmp.meanPoint);
-  const int maxDistance1 = getDistance(areaCmp.significantPoints[1], areaCmp.meanPoint);
+  bool succeeded = false;
 
-  for (DartArea& areaIter : areaList)
+  for (DartArea& greenContour : greenContours)
   {
-    if (areaCmp.neighbours[0] == nullptr)
+    if (getTheOneTrueRing(&greenContour, dartAreasOuterRed, dartAreasOuterGreen))
     {
-      checkNeighbour(areaCmp, areaIter, 0, 0, maxDistance0);
-      checkNeighbour(areaCmp, areaIter, 0, 1, maxDistance0);
-    }
-    if (areaCmp.neighbours[1] == nullptr)
-    {
-      checkNeighbour(areaCmp, areaIter, 1, 0, maxDistance1);
-      checkNeighbour(areaCmp, areaIter, 1, 1, maxDistance1);
-    }
-    if (areaCmp.neighbours[0] != nullptr && areaCmp.neighbours[1] != nullptr)
-    {
-      // When both neighbours were found
-      return true;
+      succeeded = true;
+      break;
     }
   }
-  return false;
+
+  if (!succeeded)
+  {
+    return false;
+  }
+
+  // Only get green contours that aren't in the outside ring
+  std::list<DartArea*> innerGreenContours;
+  for (DartArea& element : greenContours)
+  {
+    auto it = std::find(dartAreasOuterGreen.begin(), dartAreasOuterGreen.end(), &element);
+    if (it == dartAreasOuterGreen.end())
+    {
+      innerGreenContours.push_back(&element);
+    }
+  }
+
+  for (auto greenContour : innerGreenContours)
+  {
+    if (getTheOneTrueRing(greenContour, dartAreasInnerRed, dartAreasInnerGreen))
+    {
+      succeeded = true;
+      break;
+    }
+  }
+  return succeeded;
 }
 
-void DartBoard::checkNeighbour(DartArea& area1, DartArea& area2, const int idxArea1, const int idxArea2, const int maxDistance)
+bool DartBoard::getTheOneTrueRing(DartArea* startArea, std::list<DartArea*>& dartAreaCandidatesRed,
+                                  std::list<DartArea*>& dartAreaCandidatesGreen)
 {
-  if (area1.neighbours[!idxArea1] == &area2)
+  if (!getTwoNeighbours(startArea, redContours))
   {
-    return;
+    return false;
   }
 
-  // Firstly looks for near point, secondly looks that second point of found area is not too near
-  if (getDistance(area1.significantPoints[idxArea1], area2.significantPoints[idxArea2]) < maxDistance
-    && getDistance(area1.significantPoints[idxArea1], area2.significantPoints[!idxArea2]) > maxDistance)
+  bool reset = false;
+  int j = 0;
+
+  DartArea* previousNeighbour = startArea;
+  DartArea* finalNeighbour = startArea->neighbours[1];
+  DartArea* nextNeighbour = startArea->neighbours[0];
+
+  dartAreaCandidatesGreen.push_back(previousNeighbour);
+  dartAreaCandidatesRed.push_back(finalNeighbour);
+
+  while (nextNeighbour != finalNeighbour)
   {
-    area1.neighbours[idxArea1] = &area2;
-    // area2 connecting removed, because green contours can become wrongly connected with this method
+    if (j == 20)
+    {
+      reset = true;
+      break;
+    }
+
+    const bool isRed = j % 2 == 0;
+    if (!getTwoNeighbours(nextNeighbour, isRed ? greenContours : redContours))
+    {
+      reset = true;
+      break;
+    }
+
+    if (isRed)
+    {
+      dartAreaCandidatesRed.push_back(nextNeighbour);
+    }
+    else
+    {
+      dartAreaCandidatesGreen.push_back(nextNeighbour);
+    }
+
+    if (nextNeighbour->neighbours[0] == previousNeighbour)
+    {
+      previousNeighbour = nextNeighbour;
+      nextNeighbour = nextNeighbour->neighbours[1];
+    }
+    else
+    {
+      previousNeighbour = nextNeighbour;
+      nextNeighbour = nextNeighbour->neighbours[0];
+    }
+
+    j++;
   }
+
+  // Only the neighbours for the finalNeighbour to get now and we're good to go
+  if (!getTwoNeighbours(finalNeighbour, greenContours))
+  {
+    return false;
+  }
+
+  if (reset)
+  {
+    dartAreaCandidatesGreen.clear();
+    dartAreaCandidatesRed.clear();
+    return false;
+  }
+  return true;
 }
 
-void DartBoard::filterTheOddOneOut(std::list<DartArea*>& dartAreas)
+bool DartBoard::getTwoNeighbours(DartArea* area, std::list<DartArea>& compAreas)
 {
-  std::list<DartArea*> dartBoardTMp;
+  unsigned distances[2] = { INT16_MAX, INT16_MAX };
+  DartArea* neighbourCandidates[2];
 
-  for (DartArea* area : dartAreas)
+  for (DartArea& areaIter : compAreas)
   {
-    bool add = true;
-    for (DartArea* areaPtr : area->neighbours)
+    // i is the index of the area for neighbours and significantPoints (both significantPoint get neighbour)
+    for (int i = 0; i < 2; i++)
     {
-      if (areaPtr->neighbours[0] == nullptr || areaPtr->neighbours[1] == nullptr)
+      // same as above but for the compare area
+      for (int j = 0; j < 2; j++)
       {
-        add = false;
+        const auto distanceTmp = getDistance(area->significantPoints[i], areaIter.significantPoints[j]);
+
+        // Additional check possible here but probably not needed (that distance to other sigPoints is over threshold)
+        if (distanceTmp < distances[i])
+        {
+          distances[i] = distanceTmp;
+          neighbourCandidates[i] = &areaIter;
+        }
       }
     }
-    if (add)
-    {
-      dartBoardTMp.push_back(area);
-    }
   }
-  dartAreas = dartBoardTMp;
+
+  // No ? : for readability
+  if (neighbourCandidates[0] == nullptr || neighbourCandidates[1] == nullptr || neighbourCandidates[0] == neighbourCandidates[1])
+  {
+    return false;
+  }
+
+  area->neighbours[0] = neighbourCandidates[0];
+  area->neighbours[1] = neighbourCandidates[1];
+  return true;
 }
 
 DartAreaArray DartBoard::sortAreas(DartArea* highestYArea)
@@ -427,7 +404,6 @@ void DartBoard::setCorners()
   }
 }
 
-
 // Innerbullseye needed!
 void DartBoard::setSortedMeanCorners(DartAreaArray areas)
 {
@@ -537,34 +513,37 @@ void DartBoard::setNames()
   singleBull.name = DartAreaName(1, DartAreaName::SingleBull);
 }
 
-void DartBoard::setExtremePoints()
+void DartBoard::setRect()
 {
   const auto centerX = singleBullCenter.x;
   const auto centerY = singleBullCenter.y;
-  const auto height = doubles[AREA_20]->meanPoint.y - centerY;
-  const auto width = doubles[AREA_6]->meanPoint.x - centerX;
+  const auto height = centerY - doubles[AREA_20]->meanPoint.y;
+  const auto width = centerX - doubles[AREA_11]->meanPoint.x;
   const auto factor = 1.25f;
 
-  extremePoints[0] = cv::Point(centerX, centerY + factor * height);
-  extremePoints[1] = cv::Point(centerX + factor * width, centerY );
-  extremePoints[2] = cv::Point(centerX, centerY - factor * height);
-  extremePoints[3] = cv::Point(centerX - factor * width, centerY);
+  int x = centerX - factor * width;
+  int y = centerY - factor * height;
+
+  rect = cv::Rect(x, y, 2 * factor * width, 2 * factor * height);
 }
 
 void DartBoard::drawBoard(cv::Mat& img, cv::Size sizeReference)
 {
-  if (img.empty())
-  {
-    img = cv::Mat::zeros(sizeReference, CV_8UC3);
-  }
+  cv::Mat coloredMask = cv::Mat::zeros(sizeReference, CV_8UC3);
 
-  for(auto single : singles)
+  for(int i = 0; i < 20; i+=2)
   {
-    single->draw(img, _whiteColor);
+    line(coloredMask, triples[i]->meanCorners[DartArea::Outer1], doubles[i]->meanCorners[DartArea::Outer1], _whiteColor, 3);
+    line(coloredMask, triples[i]->meanCorners[DartArea::Outer2], doubles[i]->meanCorners[DartArea::Outer2], _whiteColor, 3);
+
+    line(coloredMask, triples[i]->meanCorners[DartArea::Inner1], singleBullCenter, _whiteColor, 3);
+    line(coloredMask, triples[i]->meanCorners[DartArea::Inner2], singleBullCenter, _whiteColor, 3);
   }
+  singleBull.draw(coloredMask, _blackColor, cv::FILLED);
 
   // Temporary contours safe
   std::vector<std::vector<cv::Point>> contoursBuff;
+
   for (auto dartArea : doubles)
   {
     contoursBuff.push_back(dartArea->contour);
@@ -575,15 +554,21 @@ void DartBoard::drawBoard(cv::Mat& img, cv::Size sizeReference)
     contoursBuff.push_back(dartArea->contour);
   }
 
-  if (!singleBull.contour.empty() && !bullseye.contour.empty())
-  {
-    contoursBuff.push_back(singleBull.contour);
-    contoursBuff.push_back(bullseye.contour);
-  }
+  contoursBuff.push_back(singleBull.contour);
+  contoursBuff.push_back(bullseye.contour);
 
   for (size_t i = 0; i < contoursBuff.size(); i++)
   {
-    drawContours(img, contoursBuff, static_cast<int>(i), i % 2 ? _redColor : _greenColor, 2);
+    drawContours(coloredMask, contoursBuff, static_cast<int>(i), i % 2 ? _redColor : _greenColor, 2);
+  }
+
+  if(img.empty())
+  {
+    img = coloredMask;
+  }
+  else
+  {
+    img += coloredMask;
   }
 }
 

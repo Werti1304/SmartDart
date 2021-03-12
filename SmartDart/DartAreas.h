@@ -34,7 +34,7 @@ public:
 
   DartArea(std::vector<cv::Point> inputPoints, bool drawAsContours = true);
   DartArea();
-  void draw(cv::Mat& src, const cv::Scalar& color = cv::Scalar(0, 255, 0), int thickness = 5) const;
+  void draw(const cv::Mat& src, const cv::Scalar& color = cv::Scalar(0, 255, 0), int thickness = 3) const;
   void drawUsingNameColor(cv::Mat& src, int thickness = 5) const;
   bool isRed() const;
 
@@ -44,6 +44,7 @@ public:
   bool operator!=(const DartArea& d1) const;
 
   static std::list<DartArea> calculateAreas(std::vector<std::vector<cv::Point>> contours);
+  static DartArea* getHighestYArea(std::list<DartArea*> dartAreas);
 };
 
 typedef std::array<DartArea*, 20> DartAreaArray;

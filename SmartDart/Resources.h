@@ -12,8 +12,8 @@ namespace Resources
   const HSVColorFilter red_2_default(170, 70, 60,
     180, 255, 255);
 
-  const HSVColorFilter green_default(60, 100, 20,
-    90, 255, 255);
+  const HSVColorFilter green_default(60, 140, 20,
+    80, 255, 255);
 
   const HSVColorFilter red_1_histogram(0, 70, 40,
     10, 255, 255);
@@ -44,6 +44,7 @@ const cv::Scalar _redColor{ 0, 0, 255 };
 const cv::Scalar _greenColor{ 0, 255, 0 };
 const cv::Scalar _blueColor{ 255, 0, 0 };
 const cv::Scalar _whiteColor{ 255, 255, 255 };
+const cv::Scalar _blackColor{ 0, 0, 0 };
 
 inline std::map<int, int> DartAreaMapping
 {

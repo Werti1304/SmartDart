@@ -52,13 +52,13 @@ DartArea::DartArea(std::vector<cv::Point> inputPoints, bool drawAsContours) : co
 DartArea::DartArea()
 = default;
 
-void DartArea::draw(cv::Mat& src, const cv::Scalar& color, int thickness) const
+void DartArea::draw(const cv::Mat& src, const cv::Scalar& color, int thickness) const
 {
   if(drawAsContours)
   {
     std::vector<std::vector<cv::Point> > contourVec;
     contourVec.push_back(contour);
-    cv::drawContours(src, contourVec, 0, color, 3); //Replace i with 0 for index.
+    cv::drawContours(src, contourVec, 0, color, thickness); //Replace i with 0 for index.
     return;
   }
 
@@ -96,4 +96,20 @@ std::list<DartArea> DartArea::calculateAreas(std::vector<std::vector<cv::Point>>
     dartAreaList.push_back(DartArea(contour));
   }
   return dartAreaList;
+}
+
+DartArea* DartArea::getHighestYArea(std::list<DartArea*> dartAreas)
+{
+  int highestY = INT16_MAX;
+  DartArea* highestYArea;
+
+  for (auto* area : dartAreas)
+  {
+    if (highestY > area->meanPoint.y)
+    {
+      highestY = area->meanPoint.y;
+      highestYArea = area;
+    }
+  }
+  return highestYArea;
 }
