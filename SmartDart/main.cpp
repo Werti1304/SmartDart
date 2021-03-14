@@ -29,7 +29,7 @@ void reset(string windowNameInput)
 
 Mat getImage()
 {
-  const int returnCode = system("raspistill -w 1920 -h 1080 -st -t 1000 -o input.jpg");
+  const int returnCode = system("raspistill -w 2560 -h 1920 -st -t 1000 -o input.jpg");
 
   if (returnCode != 0)
   {
@@ -438,44 +438,47 @@ prepareBoard:
   //}
 }
 
-void testFunc()
+Mat cFrame;
+
+void getter()
 {
-  defaultRun(false);
-
-  int minLength = arcLength(dartBoard->bullseye.contour, true);
-  int maxLength = 5 * arcLength(dartBoard->singleBull.contour, true);
-  
-  //create Background Subtractor objects
-  Ptr<BackgroundSubtractor> pBackSub;
-
-  auto test = createBackgroundSubtractorMOG2(500, 32, false);
-  pBackSub = test;
-  //pBackSub = createBackgroundSubtractorKNN();
-
-  auto capture(VideoCapture(0));
-  //capture.set(CAP_PROP_FPS, 30);
-  capture.set(CAP_PROP_FRAME_WIDTH, 1920);
-  capture.set(CAP_PROP_FRAME_HEIGHT, 1080);
-  //capture.set(CAP_PROP_FRAME_WIDTH, 640);
-  //capture.set(CAP_PROP_FRAME_HEIGHT, 480);
-  //capture.set(CAP_PROP_FORMAT, CV_8UC3);
+  VideoCapture capture(0);
+  capture.set(CAP_PROP_FRAME_WIDTH, 2560);
+  capture.set(CAP_PROP_FRAME_HEIGHT, 1920);
 
   if (!capture.isOpened()) {
     //error in opening the video input
     cerr << "Unable to open Videocapture" << endl;
     return;
   }
-  Mat frame, fgMask;
-  auto frameDelay = 30;
-  auto coolDownStartet = false;
-  auto takeFrames = 0;
 
-  auto areaMax = 0;
-  vector<vector<Point>> biggestContours;
+  for(;;)
+  {
+    capture.read(cFrame);
+  }
+}
+
+void testFunc()
+{
+  defaultRun(false);
+
+  std::thread thread1(getter);
+
+  int minLength = arcLength(dartBoard->bullseye.contour, true) / 2;
+  int maxLength = arcLength(dartBoard->singles[0]->contour, true);
+  
+  //create Background Subtractor objects
+  Ptr<BackgroundSubtractor> pBackSub;
+
+  auto test = createBackgroundSubtractorMOG2(500, 16, false);
+  pBackSub = test;
+  //pBackSub = createBackgroundSubtractorKNN();
+
+  Mat fgMask;
+
+  vector<vector<Point>> biggestContour;
   Mat biggestContourFrame;
   Mat biggestContourMask;
-
-  RNG rng(time(0)); // RNG with seed of current time
 
   int i = 0;
 
@@ -487,72 +490,39 @@ void testFunc()
   _win.namedWindowResized("fgMask");
   _win.namedWindowResized("Contour");
 
-  capture >> frame;
   Mat dartboardImg = Mat::zeros(defInputImage.size(), CV_8UC3);
   dartBoard->drawBoard(dartboardImg, defInputImage.size());
   rectangle(dartboardImg, dartBoard->rect, _greenColor, 3);
 
-  cvtColor(frame, frame, COLOR_RGB2BGR);
+  while (cFrame.empty()) // Wait for first frame;
+  { }
+
+  cvtColor(cFrame, cFrame, COLOR_RGB2BGR);
   imshow("Dartboard", dartboardImg);
   //resize(dartboardImg, dartboardImg, frame.size(), 0.5625, 0.75);
 
   vector<vector<Point>> contours;
   std::vector<Vec4i> hierarchy;
-  Mat contourImg = frame.clone();
+  Mat contourImg = cFrame.clone();
+
+  Mat frame = cFrame(dartBoard->rect);
+
+  bool startFrameCooldown = false;
+  int frameCoolDown = 0;
+  Mat calculatedFrame = Mat::zeros(frame.size(), CV_8UC1);
+  std::vector<Mat> frames;
 
   while (true)
   {
     start = std::chrono::steady_clock::now();
 
-    capture >> frame;
-    if (frame.empty())
-      break;
+    frame = cFrame(dartBoard->rect);
 
     //update the background model
     pBackSub->apply(frame, fgMask);
 
-    //if (frameDelay == 0)
-    //{
-    //  vector<vector<Point>> contours;
-    //  findContours(fgMask, contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
-
-    //  cvtColor(fgMask, fgMask, COLOR_GRAY2BGR);
-
-    //  if (coolDownStartet)
-    //  {
-    //    takeFrames--;
-    //  }
-
-    //  for (auto i = 0; i < contours.size(); i++)
-    //  {
-    //    auto area = contourArea(contours[i]);
-    //    if (!coolDownStartet && area > 15) // If length > 15, start the cooldown
-    //    {
-    //      areaMax = 0;
-    //      coolDownStartet = true;
-    //      takeFrames = 20;
-    //      frameDelay = 5; // Delay 5 frames so the dart doesn't get captured while flying
-    //      break;
-    //    }
-
-    //    if (takeFrames > 0 && areaMax < area)
-    //    {
-    //      areaMax = area;
-    //      biggestContours = contours;
-    //      biggestContourFrame = frame.clone();
-    //      biggestContourMask = fgMask.clone();
-    //    }
-    //  }
-    //}
-    //else
-    //{
-    //  frameDelay--;
-    //}
-
-    //imshow("FG Mask", fgMask);
-
     // get the input from the keyboard
-    auto keyboard = waitKey(1);
+    auto keyboard = waitKey(10);
     if (keyboard == 'q' || keyboard == 27)
       break;
 
@@ -563,28 +533,116 @@ void testFunc()
     i++;
     diff += std::chrono::duration_cast<
       std::chrono::milliseconds>(end - start);
-    if(diff > chrono::duration<long long, ratio<1, 1000>>(1000))
-    {
+    //if(diff > chrono::duration<long long, ratio<1, 1000>>(1000))
+    //{
       cout << diff.count() << "ms " << static_cast<float>(i / (diff.count() / 1000.0f)) << "fps\r" << std::flush;
       i = 0;
       diff = chrono::duration<long long, ratio<1, 1000>>(0);
 
-      imshow("Frame", frame + dartboardImg);
+      imshow("Frame", cFrame + dartboardImg);
       imshow("fgMask", fgMask);
 
-      contourImg = frame.clone();
-      for(int i = 0; i < contours.size(); i++)
+      contourImg = Mat::zeros(frame.size(), CV_8UC3);
+      long xSum = 0;
+      long ySum = 0;
+      long takenPoints = 0;
+      for (int i = 0; i < contours.size(); i++)
       {
-        int area = arcLength(contours[i], true);
-        if(area > minLength && area < maxLength)
+        //int area = arcLength(contours[i], true);
+        //if (area > minLength && area < maxLength)
+        //{
+        if(arcLength(contours[i], true) > 5)
         {
-          drawContours(contourImg, contours, i, _greenColor, 3);
+          drawContours(contourImg, contours, i, _greenColor, -1);
+        }
+
+          //for(Point pt : contours[i])
+          //{
+          //  takenPoints++;
+          //  xSum += pt.x;
+          //  ySum += pt.y;
+          //}
+        //}
+      }
+
+      cv::Mat structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(10, 10));
+      cv::morphologyEx(contourImg, contourImg, cv::MORPH_CLOSE, structuringElement);
+
+      //if(takenPoints != 0)
+      //{
+      //  Point meanPoint(xSum / takenPoints, ySum / takenPoints);
+      //  circle(contourImg, meanPoint, 5, _whiteColor, 2);
+      //}
+
+      Mat contourMask;
+      cvtColor(contourImg, contourMask, COLOR_BGR2GRAY);
+      contours.clear();
+      findContours(contourMask, contours, hierarchy, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
+
+      Mat img = frame.clone();
+      for (int i = 0; i < contours.size(); i++)
+      {
+        int lgth = arcLength(contours[i], true);
+        if(lgth > minLength && lgth < maxLength)
+        {
+          drawContours(img, contours, i, _whiteColor, -1);
         }
       }
-      imshow("Contour", contourImg);
-    }
 
-    //if (coolDownStartet && takeFrames == 0)
+        // Get biggest
+      //int max = 0;
+      //int biggestContourIdx = -1;
+      //for(int i = 0; i < contours.size(); i++)
+      //{
+      //  int area = contourArea(contours[i]);
+      //  int lgth = arcLength(contours[i], true);
+      //  if(lgth > minLength
+      //    && lgth < maxLength
+      //    && area > max)
+      //  {
+      //    max = area;
+      //    biggestContourIdx = i;
+      //  }
+      //}
+
+      //Mat img = frame.clone();
+      //if(biggestContourIdx != -1)
+      //{
+      //  //if(!startFrameCooldown)
+      //  //{
+      //  //  startFrameCooldown = true;
+      //  //  frameCoolDown = 5;
+
+      //  //  threshold(img, img, 2, 255, THRESH_BINARY);
+      //  //  frames.push_back(img);
+      //  //}
+      //  //else if(frameCoolDown == 0)
+      //  //{
+      //  //  startFrameCooldown = false;
+      //  //  //Mat testImg = Mat::zeros(calculatedFrame.size(), CV_8UC1);
+      //  //  //threshold(calculatedFrame, testImg, 2, 255, THRESH_BINARY);
+      //  //  for(Mat calcFrame : frames)
+      //  //  {
+      //  //    _win.imgshowResized("Test", calcFrame);
+      //  //    waitKey(0);
+      //  //  }
+      //  //  frames.clear();
+      //  //}
+      //  //else
+      //  //{
+      //  //  threshold(img, img, 128, 255, THRESH_BINARY);
+      //  //  frames.push_back(img);
+      //  //  frameCoolDown--;
+      //  //}
+      //  //startFrameCooldown = true;
+      //  //frameCoolDown = 5;
+      //  drawContours(img, contours, biggestContourIdx, _whiteColor, -1);
+      //}
+
+      imshow("Contour", img);
+    //}
+
+    //if (coolDownStartet && takeFrames == 0)//
     //{
     //  // Draws the biggest found contours
     //  auto color = Scalar(rng.uniform(50, 256), rng.uniform(0, 256), rng.uniform(0, 256));
