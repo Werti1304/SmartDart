@@ -548,31 +548,14 @@ void testFunc()
       long takenPoints = 0;
       for (int i = 0; i < contours.size(); i++)
       {
-        //int area = arcLength(contours[i], true);
-        //if (area > minLength && area < maxLength)
-        //{
         if(arcLength(contours[i], true) > 5)
         {
           drawContours(contourImg, contours, i, _greenColor, -1);
         }
-
-          //for(Point pt : contours[i])
-          //{
-          //  takenPoints++;
-          //  xSum += pt.x;
-          //  ySum += pt.y;
-          //}
-        //}
       }
 
       cv::Mat structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(10, 10));
       cv::morphologyEx(contourImg, contourImg, cv::MORPH_CLOSE, structuringElement);
-
-      //if(takenPoints != 0)
-      //{
-      //  Point meanPoint(xSum / takenPoints, ySum / takenPoints);
-      //  circle(contourImg, meanPoint, 5, _whiteColor, 2);
-      //}
 
       Mat contourMask;
       cvtColor(contourImg, contourMask, COLOR_BGR2GRAY);
@@ -588,79 +571,7 @@ void testFunc()
           drawContours(img, contours, i, _whiteColor, -1);
         }
       }
-
-        // Get biggest
-      //int max = 0;
-      //int biggestContourIdx = -1;
-      //for(int i = 0; i < contours.size(); i++)
-      //{
-      //  int area = contourArea(contours[i]);
-      //  int lgth = arcLength(contours[i], true);
-      //  if(lgth > minLength
-      //    && lgth < maxLength
-      //    && area > max)
-      //  {
-      //    max = area;
-      //    biggestContourIdx = i;
-      //  }
-      //}
-
-      //Mat img = frame.clone();
-      //if(biggestContourIdx != -1)
-      //{
-      //  //if(!startFrameCooldown)
-      //  //{
-      //  //  startFrameCooldown = true;
-      //  //  frameCoolDown = 5;
-
-      //  //  threshold(img, img, 2, 255, THRESH_BINARY);
-      //  //  frames.push_back(img);
-      //  //}
-      //  //else if(frameCoolDown == 0)
-      //  //{
-      //  //  startFrameCooldown = false;
-      //  //  //Mat testImg = Mat::zeros(calculatedFrame.size(), CV_8UC1);
-      //  //  //threshold(calculatedFrame, testImg, 2, 255, THRESH_BINARY);
-      //  //  for(Mat calcFrame : frames)
-      //  //  {
-      //  //    _win.imgshowResized("Test", calcFrame);
-      //  //    waitKey(0);
-      //  //  }
-      //  //  frames.clear();
-      //  //}
-      //  //else
-      //  //{
-      //  //  threshold(img, img, 128, 255, THRESH_BINARY);
-      //  //  frames.push_back(img);
-      //  //  frameCoolDown--;
-      //  //}
-      //  //startFrameCooldown = true;
-      //  //frameCoolDown = 5;
-      //  drawContours(img, contours, biggestContourIdx, _whiteColor, -1);
-      //}
-
       imshow("Contour", img);
-    //}
-
-    //if (coolDownStartet && takeFrames == 0)//
-    //{
-    //  // Draws the biggest found contours
-    //  auto color = Scalar(rng.uniform(50, 256), rng.uniform(0, 256), rng.uniform(0, 256));
-    //  for (auto i = 0; i < biggestContours.size(); i++)
-    //  {
-    //    if (contourArea(biggestContours[i]) > 15)
-    //    {
-    //      drawContours(biggestContourFrame, biggestContours, i, color);
-    //    }
-    //  }
-    //  imshow("FG Mask", biggestContourMask);
-    //  imshow("Frame", biggestContourFrame);
-
-    //  waitKey(0);
-
-    //  frameDelay = 30; // Delay of 30 frames so that the algorithm can get a new background image
-    //  pBackSub->apply(frame, fgMask, 1); // Reset background image
-    //  coolDownStartet = false;
     //}
   }
 }
