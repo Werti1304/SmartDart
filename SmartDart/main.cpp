@@ -11,6 +11,7 @@
 #include "Resources.h"
 #include "Testing.h"
 #include <raspicam/raspicam_cv.h>
+#include "PointHelper.h"
 
 using namespace cv;
 using namespace std;
@@ -563,15 +564,43 @@ void testFunc()
       findContours(contourMask, contours, hierarchy, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
 
       Mat img = frame.clone();
-      for (int i = 0; i < contours.size(); i++)
+      long sumX = 0;
+      long sumY = 0;
+      long ptSize = 0;
+      std::vector<Point> allPoints;
+      if(contours.size() > 0)
       {
-        int lgth = arcLength(contours[i], true);
-        if(lgth > minLength && lgth < maxLength)
+        for (int i = 0; i < contours.size(); i++)
         {
-          drawContours(img, contours, i, _whiteColor, -1);
+          int lgth = arcLength(contours[i], true);
+          if (lgth > minLength && lgth < maxLength)
+          {
+            drawContours(img, contours, i, _whiteColor, -1);
+
+            for (Point pt : contours[i])
+            {
+              sumX += pt.x;
+              sumY += pt.y;
+              allPoints.push_back(pt);
+            }
+            ptSize += contours[i].size();
+          }
+        }
+
+        if(allPoints.size() > 0)
+        {
+          // Find probable impact-point
+          Point meanPoint(sumX / ptSize, sumY / ptSize);
+          circle(img, meanPoint, 5, _greenColor, 2);
+
+          std::array<Point, 1> tmpArr = { meanPoint };
+          auto result = PointHelper::findPoints(allPoints, tmpArr, false);
+          circle(img, result[0], 5, _blueColor, 2);
+          //std::cout << dartBoard->detectHit(result[0])->name.to_String() << std::endl;
+          imshow("Contour", img);
         }
       }
-      imshow("Contour", img);
+      
     //}
   }
 }
