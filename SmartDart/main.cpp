@@ -471,13 +471,12 @@ void testFunc()
   //create Background Subtractor objects
   Ptr<BackgroundSubtractor> pBackSub;
 
-  auto test = createBackgroundSubtractorMOG2(500, 16, false);
+  auto test = createBackgroundSubtractorMOG2(100, 16, false);
   pBackSub = test;
   //pBackSub = createBackgroundSubtractorKNN();
 
   Mat fgMask;
 
-  vector<vector<Point>> biggestContour;
   Mat biggestContourFrame;
   Mat biggestContourMask;
 
@@ -512,6 +511,9 @@ void testFunc()
   int frameCoolDown = 0;
   Mat calculatedFrame = Mat::zeros(frame.size(), CV_8UC1);
   std::vector<Mat> frames;
+
+  bool waitTillReset = false;
+  int frameCountdown = -1;
 
   while (true)
   {
@@ -555,7 +557,7 @@ void testFunc()
         }
       }
 
-      cv::Mat structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(10, 10));
+      cv::Mat structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5));
       cv::morphologyEx(contourImg, contourImg, cv::MORPH_CLOSE, structuringElement);
 
       Mat contourMask;
@@ -566,8 +568,11 @@ void testFunc()
       Mat img = frame.clone();
       long sumX = 0;
       long sumY = 0;
-      long ptSize = 0;
-      std::vector<Point> allPoints;
+      //long ptSize = 0;
+      //std::vector<Point> allPoints
+      int biggestContourIdx = -1;
+      int biggestArcLength = 0;
+      int probableSize = 0;
       if(contours.size() > 0)
       {
         for (int i = 0; i < contours.size(); i++)
@@ -575,31 +580,85 @@ void testFunc()
           int lgth = arcLength(contours[i], true);
           if (lgth > minLength && lgth < maxLength)
           {
-            drawContours(img, contours, i, _whiteColor, -1);
+            drawContours(img, contours, i, _redColor, 3);
+            probableSize++;
 
-            for (Point pt : contours[i])
+            if(lgth > biggestArcLength)
             {
-              sumX += pt.x;
-              sumY += pt.y;
-              allPoints.push_back(pt);
+              biggestArcLength = lgth;
+              biggestContourIdx = i;
             }
-            ptSize += contours[i].size();
+
+            //for (Point pt : contours[i])
+            //{
+            //  //sumX += pt.x;
+            //  //sumY += pt.y;
+            //  //allPoints.push_back(pt);
+            //}
+            //ptSize += contours[i].size();
           }
         }
 
-        if(allPoints.size() > 0)
+        if(!waitTillReset && biggestContourIdx != -1)
         {
+          drawContours(img, contours, biggestContourIdx, _whiteColor, 3);
           // Find probable impact-point
-          Point meanPoint(sumX / ptSize, sumY / ptSize);
-          circle(img, meanPoint, 5, _greenColor, 2);
+          //Point meanPoint(sumX / ptSize, sumY / ptSize);
+          //circle(img, meanPoint, 5, _greenColor, 2);
 
-          std::array<Point, 1> tmpArr = { meanPoint };
-          auto result = PointHelper::findPoints(allPoints, tmpArr, false);
-          circle(img, result[0], 5, _blueColor, 2);
+          //std::array<Point, 1> tmpArr = { meanPoint };
+          //auto result = PointHelper::findPoints(allPoints, tmpArr, false);
+          //circle(img, result[0], 5, _blueColor, 2);
           //std::cout << dartBoard->detectHit(result[0])->name.to_String() << std::endl;
+          Vec4f vectorLine;
+          fitLine(contours.at(biggestContourIdx), vectorLine, DIST_L2, 0, 0.01, 0.01);
+
+          Point point0;
+          point0.x = vectorLine[2];//point on the line
+          point0.y = vectorLine[3];
+          double k = vectorLine[1] / vectorLine[0]; //slope
+
+          //calculate the endpoint of the line (y = k(x - x0) + y0)
+          Point point1, point2;
+          point1.x = 0;
+          point1.y = k * (0 - point0.x) + point0.y;
+          point2.x = img.cols;
+          point2.y = k * (img.cols - point0.x) + point0.y;
+
+          line(img, point1, point2, cv::Scalar(0, 255, 0), 2, 8, 0);
+
           imshow("Contour", img);
+
+          if(probableSize == 1)
+          {
+            if(frameCountdown == -1)
+            {
+              // Wait 3 frames till you show the image
+              frameCountdown = 3;
+            }
+            else if(frameCountdown == 0)
+            {
+              waitKey(0);
+              waitTillReset = true;
+            }
+            else
+            {
+              frameCountdown--;
+            }
+          }
+        }
+        else
+        {
+          imshow("Contour", frame);
         }
       }
+
+    // Every time no matching contours are found
+    if(probableSize == 0)
+    {
+      waitTillReset = false; // Stop waiting for the contours to go away
+      frameCountdown = -1; // Reset the frame cooldown to inactive
+    }
       
     //}
   }
