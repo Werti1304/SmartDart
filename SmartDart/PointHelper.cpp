@@ -1,5 +1,7 @@
 #include "PointHelper.h"
 
+#include <opencv2/imgproc.hpp>
+
 void PointHelper::printPoint(cv::Point p)
 {
   printf("(%d/%d)", p.x, p.y);
@@ -26,6 +28,12 @@ int PointHelper::getDistance(cv::Point pt1, cv::Point pt2)
   // Calculating distance
   return root(pow(pt2.x - pt1.x, 2) +
     pow(pt2.y - pt1.y, 2));
+}
+
+cv::Point PointHelper::getMassCenter(std::vector<cv::Point> contour)
+{
+  cv::Moments m = cv::moments(contour);
+  return { m.m10 / m.m00, m.m01 / m.m00 };
 }
 
 // Returns point that is clockwise further as first element in array

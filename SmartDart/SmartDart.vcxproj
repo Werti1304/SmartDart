@@ -94,6 +94,7 @@
     <ClCompile Include="DartAreaName.cpp" />
     <ClCompile Include="DartAreas.cpp" />
     <ClCompile Include="Dartboard.cpp" />
+    <ClCompile Include="GeneralTrackbar.cpp" />
     <ClCompile Include="HSVTrackbar.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="PointHelper.cpp" />
@@ -106,6 +107,7 @@
     <ClInclude Include="DartAreaName.h" />
     <ClInclude Include="DartAreas.h" />
     <ClInclude Include="DartBoard.h" />
+    <ClInclude Include="GeneralTrackbar.h" />
     <ClInclude Include="HSVTrackbar.h" />
     <ClInclude Include="ListHelper.h" />
     <ClInclude Include="PointHelper.h" />

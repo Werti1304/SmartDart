@@ -519,7 +519,7 @@ void DartBoard::setRect()
   const auto centerY = singleBullCenter.y;
   const auto height = centerY - doubles[AREA_20]->meanPoint.y;
   const auto width = centerX - doubles[AREA_11]->meanPoint.x;
-  const auto factor = 1.25f;
+  const auto factor = 1.5f;
 
   int x = centerX - factor * width;
   int y = centerY - factor * height;

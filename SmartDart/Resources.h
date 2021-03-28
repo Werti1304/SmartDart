@@ -6,7 +6,7 @@
 
 namespace Resources
 {
-  const HSVColorFilter red_1_default(0, 110, 40,
+  const HSVColorFilter red_1_default(0, 110, 80,
     5, 255, 255);
 
   const HSVColorFilter red_2_default(170, 70, 60,

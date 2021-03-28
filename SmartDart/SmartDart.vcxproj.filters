@@ -29,6 +29,9 @@
     <ClCompile Include="DartAreaName.cpp">
       <Filter>DartArea</Filter>
     </ClCompile>
+    <ClCompile Include="GeneralTrackbar.cpp">
+      <Filter>ScalarTrackbar</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="ScalarTrackbar">
@@ -76,6 +79,9 @@
     </ClInclude>
     <ClInclude Include="DartAreaName.h">
       <Filter>DartArea</Filter>
+    </ClInclude>
+    <ClInclude Include="GeneralTrackbar.h">
+      <Filter>ScalarTrackbar</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -6,6 +6,8 @@ namespace PointHelper
   void printPoint(cv::Point p);
   int getDistance(cv::Point pt1, cv::Point pt2);
 
+  cv::Point getMassCenter(std::vector<cv::Point> contour);
+
   template<class T, size_t size>
   std::array<cv::Point, size> findPoints(T pointContainer, std::array<cv::Point, size> comparePts, bool nearest = true);
 
