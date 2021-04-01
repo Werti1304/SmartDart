@@ -15,6 +15,15 @@ DartBoard::DartBoard(std::list<DartArea> greenContours, std::list<DartArea> redC
   std::list<DartArea*> dartBoardInnerRed;
   std::list<DartArea*> dartBoardInnerGreen;
 
+  if(greenContours.size() < 20)
+  {
+    std::cerr << "Not enough green contours: " << greenContours.size() << std::endl;
+  }
+  if(redContours.size() < 20)
+  {
+    std::cerr << "Not enough red contours: " << redContours.size() << std::endl;
+  }
+
   const bool succeeded = getRedAndGreens(dartBoardOuterRed, dartBoardOuterGreen, dartBoardInnerRed, dartBoardInnerGreen);
 
   if(!succeeded)

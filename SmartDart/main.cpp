@@ -1,3 +1,4 @@
+#include <atomic>
 #include <iostream>
 #include "opencv2/opencv.hpp"
 #include "HSVTrackbar.h"
@@ -194,7 +195,7 @@ void drawDartBoardProgressLine(const Mat& source, const Mat& contours)
   // DartBoardCon
   board.drawBoard(images[DartBoardCon], source.size());
   circle(images[DartBoardCon], board.singleBullCenter, 5, _whiteColor, 5);
-
+  
   // DartBoardCorners
   for (auto i = 0; i < 20; i++)
   {
@@ -377,7 +378,9 @@ prepareBoard:
   Automation::erosion(images[FilteredRed], images[ErosionRed]);
   Automation::erosion(images[FilteredGreen], images[ErosionGreen]);
 
-  const auto contoursRed = Automation::contours(images[ErosionRed], images[DrawingRed], true);
+  // contoursSurround for red, because our dart surround is red and need to be filtered out
+  const auto contoursRed = Automation::contoursSurround(images[ErosionRed], images[DrawingRed], true);
+  //const auto contoursRed = Automation::contours(images[ErosionRed], images[DrawingRed], true);
   const auto contoursGreen = Automation::contours(images[ErosionGreen], images[DrawingGreen], true);
   images[DrawingResult] = images[DrawingRed] + images[DrawingGreen];
 
@@ -440,47 +443,54 @@ prepareBoard:
 }
 
 Mat cFrame;
+VideoCapture* capture;
+std::atomic<bool> done(false);
 
-void getter()
+void readImg()
 {
-  VideoCapture capture(0);
-  capture.set(CAP_PROP_FRAME_WIDTH, 2560);
-  capture.set(CAP_PROP_FRAME_HEIGHT, 1920);
-
-  if (!capture.isOpened()) {
-    //error in opening the video input
-    cerr << "Unable to open Videocapture" << endl;
-    return;
-  }
-
-  for(;;)
-  {
-    capture.read(cFrame);
-  }
+  capture->read(cFrame);
+  done = true;
 }
 
 void testFunc()
 {
   defaultRun(false);
-   std::cout << "Dartboard Rect: " << dartBoard->rect.x << "/" << dartBoard->rect.y << std::endl;
 
-  std::thread thread1(getter);
+  capture = new VideoCapture(0);
+  capture->set(CAP_PROP_FRAME_WIDTH, 2560);
+  capture->set(CAP_PROP_FRAME_HEIGHT, 1920);
+
+  if (!capture->isOpened()) {
+    //error in opening the video input
+    cerr << "Unable to open Videocapture" << endl;
+    return;
+  }
+
+  readImg();
+
+   std::cout << "Dartboard Rect: " << dartBoard->rect.x << " x " << dartBoard->rect.y << std::endl;
+
+   const unsigned rectWidth = 900;
+   const double scaleFactor = static_cast<double>(dartBoard->rect.width) / rectWidth;
+   int rectHeight = dartBoard->rect.height / scaleFactor;
+   std::cout << "Frame: " << rectWidth << " x " << rectHeight << " with factor " << scaleFactor << std::endl;
 
   const int minLength = arcLength(dartBoard->bullseye.contour, true) / 2.5;
   const int maxLength = arcLength(dartBoard->singles[0]->contour, true);
   const int minArea = contourArea(dartBoard->bullseye.contour) / 2.5;
 
-  const int morphSizePar = 2 * (dartBoard->rect.width / 250) + 1;
+  const int morphSizePar = 2 * (rectWidth / 250) + 1;
   const Size morphSize = { morphSizePar, morphSizePar };
   std::cout << "Morphsize: " << morphSize << std::endl;
 
-  const double minDist = static_cast<double>(dartBoard->rect.width) / 40;
+  const double minDist = static_cast<double>(rectWidth) / 30;
   std::cout << "minDist: " << minDist << std::endl;
 
   const int maxDartPartDist = dartBoard->rect.width / 4;
 
   Point scoreDrawPoint = { dartBoard->rect.x + dartBoard->rect.width / 2, dartBoard->rect.y + dartBoard->rect.height };
-  Point scoreDrawPoint2 = { dartBoard->rect.x + dartBoard->rect.width / 2, dartBoard->rect.y + 1.2 * dartBoard->rect.height };
+  Point scoreDrawPoint2 = { dartBoard->rect.x + dartBoard->rect.width / 2, dartBoard->rect.y + 1.1 * dartBoard->rect.height };
+  Point scoreDrawPoint3 = { dartBoard->rect.x + dartBoard->rect.width / 2, dartBoard->rect.y + 1.2 * dartBoard->rect.height };
   Point textDrawPoint = { dartBoard->rect.x, dartBoard->rect.y };
   std::cout << "ScoreDrawPoint: " << scoreDrawPoint.x << "/" << scoreDrawPoint.y << std::endl;
   std::cout << "TextDrawPoint: " << textDrawPoint.x << "/" << textDrawPoint.y << std::endl;
@@ -488,7 +498,7 @@ void testFunc()
   //create Background Subtractor objects
   Ptr<BackgroundSubtractor> pBackSub;
 
-  auto test = createBackgroundSubtractorMOG2(300, 11, true);
+  auto test = createBackgroundSubtractorMOG2(300, 12, true);
   test->setShadowValue(100);
   //std::cout << test->getShadowThreshold() << std::endl;
   test->setShadowThreshold(.75);
@@ -509,19 +519,22 @@ void testFunc()
   _win.namedWindowResized("Frame");
   _win.namedWindowResized("fgMask");
   _win.namedWindowResized("Contour");
+  _win.namedWindowResized("Probable Impact");
+  _win.namedWindowResized("Balanced Impact");
+  _win.namedWindowResized("Convex Impact");
   _win.namedWindowResized("Final");
 
   Mat dartboardImg = Mat::zeros(defInputImage.size(), CV_8UC3);
   dartBoard->drawBoard(dartboardImg, defInputImage.size());
   rectangle(dartboardImg, dartBoard->rect, _greenColor, 3);
 
-  while (cFrame.empty()) // Wait for first frame;
+  while (!done) // Wait for first frame;
   {
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
 
   cvtColor(cFrame, cFrame, COLOR_RGB2BGR);
   imshow("Dartboard", dartboardImg);
-  //resize(dartboardImg, dartboardImg, frame.size(), 0.5625, 0.75);
 
   vector<vector<Point>> contours;
   std::vector<Vec4i> hierarchy;
@@ -529,13 +542,15 @@ void testFunc()
 
   Mat frame = cFrame(dartBoard->rect);
 
-  Mat finalImg;
+  Mat finalImg = cFrame.clone();
+  putText(finalImg, "Starting..", textDrawPoint, 0, 2, _redColor, 2);
+  imshow("Final", finalImg);
 
   std::vector<int> probableContoursIdx;
 
   std::vector<Mat> frames;
 
-  long maxWhitePixels = (dartBoard->rect.width * dartBoard->rect.height) / 4;
+  long maxWhitePixels = (rectWidth * rectHeight) / 10;
 
   bool waitTillReset = true;
   int frameCountdown = -1;
@@ -545,13 +560,21 @@ void testFunc()
     start = std::chrono::steady_clock::now();
 
     frame = cFrame(dartBoard->rect);
+    resize(frame, frame, { rectWidth, rectHeight }, 0, 0, INTER_LANCZOS4);
 
     finalImg = cFrame.clone();
 
-    //GaussianBlur(frame, frame, { 3, 3 }, 2, 2);
+    while (!done) // Wait for new frame;
+    {
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    done = false;
+    thread t1(readImg);
+    t1.detach();
 
     //update the background model
-    pBackSub->apply(frame, fgMask);
+    pBackSub->apply(frame, fgMask, frameCountdown >= 0 ? 0 : -1);
+
     imshow("fgMask", fgMask);
 
     // get the input from the keyboard
@@ -561,13 +584,11 @@ void testFunc()
 
     threshold(fgMask, fgMask, 254, 255, THRESH_BINARY);
 
-    vector<Point> whitePixels;
-    findNonZero(fgMask, whitePixels);
-    if (whitePixels.size() > maxWhitePixels)
-    {
-      continue;
-    }
-    findContours(fgMask, contours, hierarchy, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
+    GaussianBlur(fgMask, fgMask, { 11, 11 }, 0);
+    Canny(fgMask, fgMask, 70, 2 * 70);
+    _win.imgshowResized("fgmask2", fgMask);
+
+    //findContours(fgMask, contours, hierarchy, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
 
     end = std::chrono::steady_clock::now();
 
@@ -582,24 +603,30 @@ void testFunc()
 
     //imshow("Frame", cFrame + dartboardImg);
     //imshow("fgMask", fgMask);
-
+    //contourImg = Mat::zeros(frame.size(), CV_8UC3);
     // Draw the bigger contours to dilate them
-    contourImg = Mat::zeros(frame.size(), CV_8UC3);
-    for (int i = 0; i < contours.size(); i++)
-    {
-      if (arcLength(contours[i], true) > 5)
-      {
-        drawContours(contourImg, contours, i, _greenColor, -1);
-      }
-    }
+    
+    //for (int i = 0; i < contours.size(); i++)
+    //{
+    //  if (arcLength(contours[i], true) > minLength)
+    //  {
+    //    drawContours(contourImg, contours, i, _greenColor, -1);
+    //  }
+    //}
+
+    //cv::Mat structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, morphSize);
+    //cv::morphologyEx(contourImg, contourImg, cv::MORPH_CLOSE, structuringElement);
+
+    //Mat contourMask;
+    //cvtColor(contourImg, contourMask, COLOR_BGR2GRAY);
+    //contours.clear();
+    //findContours(contourMask, contours, hierarchy, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
 
     cv::Mat structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, morphSize);
-    cv::morphologyEx(contourImg, contourImg, cv::MORPH_CLOSE, structuringElement);
+    cv::morphologyEx(fgMask, fgMask, cv::MORPH_CLOSE, structuringElement);
 
-    Mat contourMask;
-    cvtColor(contourImg, contourMask, COLOR_BGR2GRAY);
-    contours.clear();
-    findContours(contourMask, contours, hierarchy, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
+    findContours(fgMask, contours, hierarchy, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
+    _win.imgshowResized("fgmask3", fgMask);
 
     Mat img = frame.clone();
 
@@ -638,39 +665,42 @@ void testFunc()
         circle(img, medianPt, 5, _greenColor, 3);
 
         // If we have more than one probable contour...
-        //if (probableSize > 1)
-        //{
-        //  for (auto idx : probableContoursIdx)
-        //  {
-        //    auto tmpContour = contours.at(idx);
+        if (probableSize > 1)
+        {
+          for (auto idx : probableContoursIdx)
+          {
+            auto tmpContour = contours.at(idx);
 
-        //    // the biggest contour has to be skipped so that we don't add it to itself
-        //    if(tmpContour[0].x == biggestContour[0].x && tmpContour[0].y == biggestContour[0].y)
-        //    {
-        //      continue;
-        //    }
+            // the biggest contour has to be skipped so that we don't add it to itself
+            if(tmpContour[0].x == biggestContour[0].x && tmpContour[0].y == biggestContour[0].y)
+            {
+              continue;
+            }
 
-        //    Moments tmpM = moments(tmpContour);
-        //    Point medianPtTmp(tmpM.m10 / tmpM.m00, tmpM.m01 / tmpM.m00);
-        //    circle(img, medianPtTmp, 5, _blueColor, 2);
-        //    // ...near the biggest contour...
-        //    if (PointHelper::getDistance(medianPt, medianPtTmp) < maxDartPartDist)
-        //    {
-        //      probableSize--;
-        //      drawContours(img, contours, idx, _greenColor, 3);
-        //      //...we add it to the biggest contour
-        //      biggestContour.insert(biggestContour.end(), tmpContour.begin(), tmpContour.end()); THIS IS NOT OKAY (wrong format)
-        //    }
-        //  }
-        //}
+            Moments tmpM = moments(tmpContour);
+            Point medianPtTmp(tmpM.m10 / tmpM.m00, tmpM.m01 / tmpM.m00);
+            // ...near the biggest contour...
+            if (PointHelper::getDistance(medianPt, medianPtTmp) < maxDartPartDist)
+            {
+              //...ignore it for now and want to add it to the biggest contour later
+              probableSize--;
+              drawContours(img, contours, idx, _greenColor, 3);
+              //biggestContour.insert(biggestContour.end(), tmpContour.begin(), tmpContour.end()); THIS IS NOT OKAY (wrong format)
+            }
+          }
+        }
 
+        // Convex hull impactpoint START
         vector<vector<Point>> hull ( 1 );
         convexHull(biggestContour, hull[0]);
         //drawContours(img, hull, 0, _blueColor, 1);
         Vec4f vectorLineConvex;
         fitLine(hull[0], vectorLineConvex, DIST_L2, 0, 0.01, 0.01);
 
-        medianPt = PointHelper::getMassCenter(biggestContour);
+        // Collects points that are on or in dart contour
+        std::vector<Point> convexPts;
+        // Update median point (Contour not 100% reliable)
+        medianPt = PointHelper::getMassCenter(hull[0]);
 
         Vec4f vectorLine;
         fitLine(biggestContour, vectorLine, DIST_L2, 0, 0.01, 0.01);
@@ -686,24 +716,31 @@ void testFunc()
         {
           Point tmp(i, k * (i - point0.x) + point0.y);
 
-          double dist = pointPolygonTest(biggestContour, tmp, false);
+          int dist = pointPolygonTest(hull[0], tmp, false);
           //std::cout << "Dist: " << dist << std::endl;
+          if (dist >= 0)
+          {
+            convexPts.push_back(tmp);
+          }
           if (dist == 1)
           {
             pts.push_back(tmp);
           }
         }
 
+        Point convexImpactPoint = PointHelper::findPoints(convexPts, std::array<Point, 1>{ medianPt }, false)[0];
+        Point oppositeToConvexImpactPoint = PointHelper::findPoints(convexPts, std::array<Point, 1>{ convexImpactPoint }, false)[0];
+        Point convexScaledPoint = dartBoard->rect.tl() + scaleFactor * convexImpactPoint;
+        auto convexArea = dartBoard->detectHit(convexScaledPoint);
+
         // Calculate (probable) impactPoint and minDistance
-        Point impactPoint = PointHelper::findPoints(pts, std::array<Point, 1>{ medianPt }, false)[0];
-        Point oppositeToImpactPoint = PointHelper::findPoints(pts, std::array<Point, 1>{ impactPoint }, false)[0];
-        circle(img, impactPoint, 3, _blueColor, -1);
-        circle(img, oppositeToImpactPoint, 3, _redColor, -1);
+        Point probableImpactPoint = PointHelper::findPoints(pts, std::array<Point, 1>{ medianPt }, false)[0];
+        Point oppositeToProbableImpactPoint = PointHelper::findPoints(pts, std::array<Point, 1>{ probableImpactPoint }, false)[0];
 
-        int dartLength = PointHelper::getDistance(impactPoint, oppositeToImpactPoint);
-        double minDistFactor = static_cast<double>(dartLength) / dartBoard->rect.width;
+        int dartLength = PointHelper::getDistance(probableImpactPoint, oppositeToProbableImpactPoint);
+        double minDistFactor = static_cast<double>(dartLength) / rectWidth;
 
-        Point probableScaledPoint = dartBoard->rect.tl() + impactPoint;
+        Point probableScaledPoint = dartBoard->rect.tl() + scaleFactor * probableImpactPoint;
         auto probableArea = dartBoard->detectHit(probableScaledPoint);
 
         // Calculate real impactPoint
@@ -712,47 +749,57 @@ void testFunc()
         {
           Point tmp(i, k * (i - point0.x) + point0.y);
 
-          double dist = pointPolygonTest(biggestContour, tmp, true);
+          double dist = pointPolygonTest(hull[0], tmp, true);
           //std::cout << "Dist: " << dist << std::endl;
           if (dist >= -(minDistFactor * minDist))
           {
-            circle(img, tmp, 1, _blueColor, 1);
             pts.push_back(tmp);
           }
         }
-        impactPoint = PointHelper::findPoints(pts, std::array<Point, 1>{ medianPt }, false)[0];
-        circle(img, impactPoint, 3, _greenColor, -1);
+        Point balancedImpactPoint = PointHelper::findPoints(pts, std::array<Point, 1>{ medianPt }, false)[0];
+        Point oppositeToBalancedImpactPoint = PointHelper::findPoints(pts, std::array<Point, 1>{ balancedImpactPoint }, false)[0];
 
-        Point scaledPoint = dartBoard->rect.tl() + impactPoint;
-        auto area = dartBoard->detectHit(scaledPoint);
+        Point scaledPoint = dartBoard->rect.tl() + scaleFactor * balancedImpactPoint;
+        auto balancedArea = dartBoard->detectHit(scaledPoint);
 
-        const Point drawPoint = { impactPoint.x, impactPoint.y + dartBoard->rect.y / 10 };
-        string text;
-        string text2 = "";
-        if (area == nullptr)
+        const Point drawPoint = { balancedImpactPoint.x, balancedImpactPoint.y + dartBoard->rect.y / 5 };
+        if(drawPoint.y > dartBoard->rect.y)
         {
-          text = "Come back in 100 years";
+          drawPoint.y - dartBoard->rect.y / 2.5;
+        }
+
+        string balancedScore;
+        if (balancedArea == nullptr)
+        {
+          balancedScore = "Come back in 100 years";
         }
         else
         {
-          text = "+";
-          text += to_string(area->name.getScore());
+          balancedScore = "+";
+          balancedScore += to_string(balancedArea->name.getScore());
         }
-        if(area != probableArea)
+
+        string probableScore;
+        if (probableArea == nullptr)
         {
-          if (probableArea == nullptr)
-          {
-            text2 = "Come back in 100 years";
-          }
-          else
-          {
-            text2 = "+";
-            text2 += to_string(probableArea->name.getScore());
-          }
+          probableScore = "Come back in 100 years";
+        }
+        else
+        {
+          probableScore = "+";
+          probableScore += to_string(probableArea->name.getScore());
         }
 
-        putText(img, text, drawPoint, 0, 1, _greenColor);
-
+        string convexScore = "";
+        if (convexArea == nullptr)
+        {
+          convexScore = "Come back in 100 years";
+        }
+        else
+        {
+          convexScore = "+";
+          convexScore += to_string(convexArea->name.getScore());
+        }
 
         imshow("Contour", img);
 
@@ -765,25 +812,59 @@ void testFunc()
           }
           else if (frameCountdown == 0)
           {
-            putText(finalImg, text, scoreDrawPoint, 0, 2, _greenColor, 3);
-            if(!text2.empty())
+            waitTillReset = true;
+
+            Mat imgProbable = frame.clone();
+            Mat imgBalanced = frame.clone();
+            Mat imgConvex = frame.clone();
+
+            putText(finalImg, balancedScore, scoreDrawPoint, 0, 2, _greenColor, 3);
+            if(balancedArea != probableArea)
             {
-              putText(finalImg, text2, scoreDrawPoint2, 0, 2, _blueColor, 3);
+              putText(finalImg, probableScore, scoreDrawPoint2, 0, 2, _blueColor, 3);
+            }
+            if (convexArea != balancedArea && convexArea != probableArea)
+            {
+              putText(finalImg, convexScore, scoreDrawPoint3, 0, 2, _redColor, 3);
             }
 
             circle(finalImg, scaledPoint, 3, _blueColor, -1);
-            _win.imgshowResized("Final", finalImg);
+            imshow("Final", finalImg);
             imshow("Frame", cFrame + dartboardImg);
-
-            waitTillReset = true;
 
             std::cout << std::endl << "NEW DART" << std::endl;
             std::cout << "DartLength: " << dartLength << std::endl;
             std::cout << "MinDistFactor for dart: " << minDistFactor << std::endl;
             std::cout << "MinDist for dart: " << minDistFactor * minDist << std::endl;
+
+            // Draw probable
+            drawContours(imgConvex, hull, 0, _blueColor, 1);
+            line(imgProbable, probableImpactPoint, oppositeToProbableImpactPoint, _whiteColor, 2);
+            circle(imgProbable, probableImpactPoint, 5, _blueColor, 2);
+            circle(imgProbable, oppositeToProbableImpactPoint, 3, _blueColor, -1);
+            putText(imgProbable, probableScore, drawPoint, 0, 1, _blueColor);
+            imshow("Probable Impact", imgProbable);
+
+            // Draw balanced
+            drawContours(imgConvex, hull, 0, _greenColor, 1);
+            line(imgBalanced, balancedImpactPoint, oppositeToBalancedImpactPoint, _whiteColor, 2);
+            circle(imgBalanced, balancedImpactPoint, 5, _greenColor, 2);
+            circle(imgBalanced, oppositeToBalancedImpactPoint, 3, _greenColor, -1);
+            putText(imgBalanced, balancedScore, drawPoint, 0, 1, _greenColor);
+            imshow("Balanced Impact", imgBalanced);
+
+            // Draw convex
+            drawContours(imgConvex, hull, 0, _redColor, 1);
+            line(imgConvex, convexImpactPoint, oppositeToConvexImpactPoint, _whiteColor, 2);
+            circle(imgConvex, convexImpactPoint, 5, _redColor, 2);
+            circle(imgConvex, oppositeToConvexImpactPoint, 3, _redColor, -1);
+            putText(imgConvex, convexScore, drawPoint, 0, 1, _redColor);
+            imshow("Convex Impact", imgConvex);
+
             // Update background subtraction while nothing is pressed to speed things up
-            while (waitKey(10) != ' ')
+            while (waitKey(50) != ' ')
             {
+              readImg();
               frame = cFrame(dartBoard->rect);
 
               //update the background model
@@ -801,10 +882,13 @@ void testFunc()
     // Every time no matching contours are found
     if (probableSize == 0)
     {
-      waitTillReset = false; // Stop waiting for the contours to go away
+      if(waitTillReset)
+      {
+        waitTillReset = false; // Stop waiting for the contours to go away
+        imshow("Contour", frame);
+        imshow("Final", finalImg);
+      }
       frameCountdown = -1; // Reset the frame cooldown to inactive
-      imshow("Contour", frame);
-      imshow("Final", finalImg);
     }
     else if(waitTillReset)
     {

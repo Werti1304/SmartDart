@@ -40,21 +40,23 @@ cv::Point PointHelper::getMassCenter(std::vector<cv::Point> contour)
 std::array<cv::Point, 2> PointHelper::sortClockwise(cv::Point& orientationPt, std::array<cv::Point, 2> comparePts)
 {
   const auto directionPt = orientationPt - (comparePts[0] + comparePts[1]) / 2; // Take the mean of both of them
+  const auto xDiff = std::abs(comparePts[0].x - comparePts[1].x);
+  const auto yDiff = std::abs(comparePts[0].y - comparePts[1].y);
 
-  if (directionPt.x < 0)  // NOLINT(bugprone-branch-clone)
+  if (xDiff > yDiff)
   {
-    if (directionPt.y < 0)  // NOLINT(bugprone-branch-clone)
+    if (directionPt.y > 0)
     {
-      // Both negative
-      if (comparePts[1].y > comparePts[0].y)
+      // Q1
+      if (comparePts[1].x > comparePts[0].x)
       {
         return { comparePts[1], comparePts[0] };
       }
     }
     else
     {
-      // X negative Y positive
-      if (comparePts[1].x > comparePts[0].x)
+      // Q3
+      if (comparePts[1].x < comparePts[0].x)
       {
         return { comparePts[1], comparePts[0] };
       }
@@ -62,23 +64,22 @@ std::array<cv::Point, 2> PointHelper::sortClockwise(cv::Point& orientationPt, st
   }
   else
   {
-    if (directionPt.y < 0)  // NOLINT(bugprone-branch-clone)
+    if (directionPt.x < 0)
     {
-      // Y negative X positive
-      if (comparePts[1].x < comparePts[0].x)
+      // Q2
+      if (comparePts[1].y > comparePts[0].y)
       {
         return { comparePts[1], comparePts[0] };
       }
     }
     else
     {
-      // Both positive
+      // Q4
       if (comparePts[1].y < comparePts[0].y)
       {
         return { comparePts[1], comparePts[0] };
       }
     }
   }
-
   return comparePts;
 }

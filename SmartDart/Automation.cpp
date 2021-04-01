@@ -2,6 +2,8 @@
 
 #include <iostream>
 
+#include "Resources.h"
+
 /**
  * \brief Generates histogram based on Y channel
  * \param src BGR source image
@@ -116,5 +118,80 @@ std::vector<std::vector<Point>> Automation::contours(const Mat& src, Mat& out, b
     }
   }
   return contoursFiltered;
+}
+
+std::vector<std::vector<Point>> Automation::contoursSurround(const Mat& src, Mat& out, bool draw, int minPerimeter)
+{
+  std::vector<std::vector<Point>> contours;
+  std::vector<Vec4i> hierarchy; // Not needed, because of retrieve-mode (RETR_EXTERNAL)
+
+  Mat src_gray;
+  if (src.channels() > 1)
+  {
+    cvtColor(src, src_gray, COLOR_BGR2GRAY);
+  }
+  else
+  {
+    src_gray = src;
+  }
+  findContours(src, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE);
+
+  int biggestArea = 0;
+  int biggestAreaIdx = -1;
+  int secondBiggestArea = 0;
+  int secondBiggestAreaIdx = -1;
+  long areaSum = 0;
+
+  if(contours.size() == 0)
+  {
+    std::cout << "No <red> contours found!";
+    return contours;
+  }
+  Mat tmpImg = Mat::zeros(src.size(), CV_8UC1);
+  cv::Mat structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(11, 11));
+  cv::morphologyEx(tmpImg, tmpImg, cv::MORPH_CLOSE, structuringElement);
+
+  for(auto i = 0; i < contours.size(); i++)
+  {
+    const int area = contourArea(contours[i], true);
+    if(area > 10)
+    {
+      areaSum += area;
+      if (area > biggestArea)
+      {
+        secondBiggestAreaIdx = biggestAreaIdx;
+        secondBiggestArea = biggestArea;
+        biggestArea = area;
+        biggestAreaIdx = i;
+      }
+      else if(area > secondBiggestArea)
+      {
+        secondBiggestAreaIdx = i;
+        secondBiggestAreaIdx = i;
+        secondBiggestArea = area;
+      }
+    }
+  }
+
+  if(biggestArea + secondBiggestArea < (areaSum - biggestArea - secondBiggestArea))
+  {
+    return Automation::contours(src, out, draw, minPerimeter);
+  }
+  std::cout << "Surround found, filtering out..\n";
+
+  drawContours(tmpImg, contours, secondBiggestAreaIdx, _whiteColor, -1);
+
+  threshold(tmpImg, tmpImg, 1, 255, THRESH_BINARY_INV);
+  // Morph and Gaussian to close the holes
+  GaussianBlur(tmpImg, tmpImg, { 15, 15 }, 2, 2);
+  structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(15, 15));
+  cv::morphologyEx(tmpImg, tmpImg, cv::MORPH_DILATE, structuringElement);
+
+  Mat modifiedSrc;
+  bitwise_not(tmpImg, tmpImg);
+  bitwise_and(src, src, modifiedSrc, tmpImg);
+  _win.imgshowResized("Filtered erosion", modifiedSrc);
+
+  return Automation::contours(modifiedSrc, out, draw, minPerimeter );
 }
 
