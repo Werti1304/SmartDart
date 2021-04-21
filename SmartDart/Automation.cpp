@@ -51,6 +51,8 @@ void Automation::erosion(const Mat& src, Mat& out)
 
   erode(src_gray, eroded_image, Mat());
 
+  _win.imgshowResized("Eroded imageee", eroded_image);
+
   out = src_gray - eroded_image;
 
   threshold(out, out, 1, 255, THRESH_BINARY);

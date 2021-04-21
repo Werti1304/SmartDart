@@ -213,26 +213,14 @@ DartAreaArray DartBoard::sortAreas(DartArea* highestYArea)
 
   // This algorithm will be applicable to all other dartareas with enum % 20
   auto* tmp = sorted[19]->neighbours;
-  for (int i = 0; i < 19; i++) // <19, because we already got the ((last)) one
+  sorted[0] = tmp[0]->meanPoint.x > tmp[1]->meanPoint.x ? tmp[0] : tmp[1];
+  tmp = sorted[0]->neighbours;
+  auto* oldArea = sorted[19];
+  for (int i = 1; i < 19; i++) // <19, because we already got the ((last)) one
   {
-    if (i <= 3)
-    {
-      sorted[i] = tmp[0]->meanPoint.x > tmp[1]->meanPoint.x ? tmp[0] : tmp[1];
-    }
-    else if (i <= 8)
-    {
-      // y points are ordered from top(0) to bottom(max)
-      sorted[i] = tmp[0]->meanPoint.y > tmp[1]->meanPoint.y ? tmp[0] : tmp[1];
-    }
-    else if (i <= 13)
-    {
-      sorted[i] = tmp[0]->meanPoint.x < tmp[1]->meanPoint.x ? tmp[0] : tmp[1];
-    }
-    else
-    {
-      sorted[i] = tmp[0]->meanPoint.y < tmp[1]->meanPoint.y ? tmp[0] : tmp[1];
-    }
+    sorted[i] = tmp[0] == oldArea ? tmp[1] : tmp[0];
     tmp = sorted[i]->neighbours;
+    oldArea = sorted[i - 1];
   }
   return sorted;
 }
@@ -371,7 +359,7 @@ void DartBoard::setCorners()
     doubleArea->corners[DartArea::Outer2] = ptTmp2;
 
 
-    // Gets points which are furthest away from Outer1 and Outer2
+    // Gets points which are furthest away from Inner1 and Inner2
     auto tripleCorners1_n_2 = findPoints(tripleArea->contour,
       std::array<cv::Point, 2>{tripleArea->corners[DartArea::Inner1], tripleArea->corners[DartArea::Inner2]}, false);
     // Reversed order because Inner1 and Outer1 should be on the same side, but the algorithm alway gets the diagonally furthest away
